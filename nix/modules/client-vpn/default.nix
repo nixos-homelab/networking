@@ -374,7 +374,7 @@ in
                   path = "/dev/net/tun";
                   type = "CharDevice";
                 };
-                config-tmp.emptyDir = { };
+                config-tmp.emptyDir.medium = "Memory";
                 config.configMap.name = "client-vpn";
               };
             };
