@@ -1,14 +1,23 @@
 { lib, transform, ... }:
 with builtins;
 let
-  inherit (transform) mkDotPath buildMetadata;
+  inherit (transform) mkResourceHelper;
 in
 {
   transformNetpolMacro =
     cfg: resource:
     let
-      dotPath = mkDotPath resource;
-      metadata = buildMetadata resource;
+      inherit (mkResourceHelper resource) dotPath;
+      metadata =
+        let
+          name = dotPath "metadata.name" (throw "You must specify metadata.name");
+          namespace = dotPath "metadata.namespace" name;
+        in
+        {
+          inherit namespace;
+          labels."app.kubernetes.io/name" = name;
+        }
+        // dotPath "metadata" (throw "You must specify metadata");
     in
     {
       apiVersion = "v1";
