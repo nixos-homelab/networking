@@ -142,9 +142,9 @@ in
           message = "The Client VPN group '${name}' has multiple peer configurations enabled (${lib.join ", " names}), this is not supported";
         }
       ) cfg.groups);
-    networking.wireguard.interfaces = lib.mapAttrs' (
-      name: value:
-      lib.nameValuePair "homelab-${name}" {
+    networking.wireguard.interfaces = lib.mapAttrs' (name: value: {
+      name = "homelab-${name}";
+      value = {
         ips = lib.mkDefault (
           lib.filter (ip: ip != null) [
             value.ipv4
@@ -163,29 +163,29 @@ in
           }
         ];
         privateKeyFile = lib.mkDefault "/etc/secrets.d/homelab-${name}.vpn-key";
-      }
-    ) enabledGroupConfigs;
+      };
+    }) enabledGroupConfigs;
     setup-secrets.sources =
-      (lib.mapAttrs' (
-        group: spec:
-        lib.nameValuePair "CLIENT_VPN_${lib.toUpper group}" {
+      (lib.mapAttrs' (group: spec: {
+        name = "CLIENT_VPN_${lib.toUpper group}";
+        value = {
           enable = cfg.enable;
           description = "Client VPN ${group} private key";
           cmd = hllib.setup-secrets.mkScript pkgs ''
             getKubeSecret client-vpn client-vpn-private-keys ${group} || \
             ${lib.getExe' pkgs.wireguard-tools "wg"} genkey
           '';
-        }
-      ) cfg.groups)
-      // (lib.mapAttrs' (
-        name: value:
-        lib.nameValuePair "HOMELAB_${lib.toUpper name}_VPN_PRIVATE_KEY" {
+        };
+      }) cfg.groups)
+      // (lib.mapAttrs' (name: value: {
+        name = "HOMELAB_${lib.toUpper name}_VPN_PRIVATE_KEY";
+        value = {
           description = "Private Key for homelab ${name} VPN connection";
           cmd = hllib.setup-secrets.mkScript pkgs ''cat "${
             config.networking.wireguard.interfaces."homelab-${name}".privateKeyFile
           }"'';
-        }
-      ) enabledGroupConfigs);
+        };
+      }) enabledGroupConfigs);
     setup-secrets.destinations = [
       {
         enable = cfg.enable;
@@ -237,9 +237,9 @@ in
           name = "client-vpn";
           labels."app.kubernetes.io/name" = "client-vpn";
         };
-        data = lib.mapAttrs' (
-          group: spec:
-          lib.nameValuePair "${group}.conf" ''
+        data = lib.mapAttrs' (group: spec: {
+          name = "${group}.conf";
+          value = ''
             [Interface]
             PrivateKey = ''${PRIVATE_KEY}
             Address = ${
@@ -279,8 +279,8 @@ in
                 ''
               ) (lib.filterAttrs (name: value: value.enable) spec.peers)
             )}
-          ''
-        ) cfg.groups;
+          '';
+        }) cfg.groups;
       };
       wg-netpol = {
         apiVersion = "cilium.io/v2";
