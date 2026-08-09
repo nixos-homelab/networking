@@ -13,8 +13,8 @@ in
     kubetree.transformers = lib.mkIf cfg.enable {
 
       "cluster.local" = {
-        ServiceNetpols._transformers = [
-          cilium.transformServiceNetpols
+        NetpolMacro._transformers = [
+          cilium.transformNetpolMacro
           transform.transformResource
           transform.flattenResourceList
         ];

@@ -309,7 +309,7 @@ in
       lib.mapAttrsToList (group: spec: {
         "${group}-deployment" = {
           apiVersion = "cluster.local";
-          kind = "ServiceDeployment";
+          kind = "DeploymentMacro";
           metadata = {
             namespace = "client-vpn";
             name = "${group}-vpn";
@@ -320,7 +320,7 @@ in
           };
           spec = {
             allowEgress = spec.allowEgress;
-            servicePodSpec = {
+            podSpecMacro = {
               initContainersByName.render-config = {
                 image = "${container-utils.buildArgs.name}:${container-utils.imageTag}";
                 imagePullPolicy = "Never";

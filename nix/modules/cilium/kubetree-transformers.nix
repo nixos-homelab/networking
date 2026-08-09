@@ -4,7 +4,7 @@ let
   inherit (transform) mkDotPath buildMetadata;
 in
 {
-  transformServiceNetpols =
+  transformNetpolMacro =
     cfg: resource:
     let
       dotPath = mkDotPath resource;

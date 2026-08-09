@@ -8,7 +8,7 @@
 let
   # See https://github.com/NixOS/nixpkgs/blob/597283ad8aa0b331c788e97c4c262d58877074ef/nixos/modules/services/networking/unifi.nix
   ccfg = config.homelab.cluster;
-  cfg = config.homelab.services.unifi;
+  cfg = config.homelab.workloads.unifi;
   jrePkg = pkgs.jdk25_headless;
   mongodb-7_0 =
     (import inputs.nixpkgs-mongodb-pin {
@@ -56,7 +56,7 @@ let
 in
 {
   key = "${toString __curPos.file}#modules.nixos.unifi";
-  options.homelab.services.unifi = {
+  options.homelab.workloads.unifi = {
     enable = lib.mkEnableOption "Unifi Controller";
     debug = lib.mkEnableOption "debug mode";
     reservedIPs = lib.mkOption {
@@ -72,7 +72,7 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = config.homelab.services.postgresql.enable;
+        assertion = config.homelab.workloads.postgresql.enable;
         message = "Unifi depends on the routed loadbalancer IP Pool module. Enable with `homelab.routed-ippool = { enable=true; lbIpBlock4.cidr = ...; }`";
       }
     ];
@@ -94,7 +94,7 @@ in
           issuerRef = {
             group = "cert-manager.io";
             kind = "ClusterIssuer";
-            name = config.kubetree.service-macros.acmeProvider;
+            name = config.kubetree.workload-macros.acmeProvider;
           };
         };
       };
@@ -165,13 +165,13 @@ in
       };
       netpols = {
         apiVersion = "cluster.local";
-        kind = "ServiceNetpols";
+        kind = "NetpolMacro";
         metadata.name = "unifi";
         spec.ports = [ 8443 ];
       };
       macro = {
         apiVersion = "cluster.local";
-        kind = "ServiceMacro";
+        kind = "WorkloadMacro";
         metadata.name = "unifi";
         spec = {
           allowIngress = [
@@ -182,7 +182,7 @@ in
             "internet"
           ];
           dataPath = "/var/lib/unifi/data";
-          servicePodSpec = {
+          podSpecMacro = {
             initContainersByName.ln-keystore = {
               image = "${image.imageName}:${image.imageTag}";
               imagePullPolicy = "Never";

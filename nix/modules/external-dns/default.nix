@@ -77,14 +77,14 @@ in
     kubetree.resources = {
       external-dns.deployment = {
         apiVersion = "cluster.local";
-        kind = "ServiceDeployment";
+        kind = "DeploymentMacro";
         metadata.name = "external-dns";
         spec = {
           allowEgress = [
             "apiserver"
             "internet"
           ];
-          servicePodSpec = {
+          podSpecMacro = {
             serviceAccountName = "external-dns";
             mainContainer = {
               image = "${externalDNSImage.buildArgs.name}:${externalDNSImage.imageTag}";
