@@ -94,7 +94,7 @@ in
           issuerRef = {
             group = "cert-manager.io";
             kind = "ClusterIssuer";
-            name = config.kubetree.workload-macros.acmeProvider;
+            name = config.kubetree.workloadMacros.acmeProvider;
           };
         };
       };
