@@ -192,16 +192,10 @@ in
         logPrefix = "Client VPN Private Keys";
         requires = map (group: "CLIENT_VPN_${lib.toUpper group}") (builtins.attrNames cfg.groups);
         cmd = hllib.setup-secrets.mkScript pkgs ''
-          kubectl create secret generic -n client-vpn --dry-run=client -oyaml client-vpn-private-keys \
-            ${
-              lib.join "\\ \n" (
-                map (group: ''--from-literal=${group}="$CLIENT_VPN_${lib.toUpper group}"'') (
-                  builtins.attrNames cfg.groups
-                )
-              )
-            } \
-            -oyaml | \
-            kubectl apply -f -
+          setKubeSecret client-vpn client-vpn-private-keys \
+            ${lib.join "\\ \n" (
+              map (group: ''${group} "$CLIENT_VPN_${lib.toUpper group}"'') (builtins.attrNames cfg.groups)
+            )}
         '';
       }
     ]
