@@ -9,6 +9,7 @@ let
   # See https://github.com/NixOS/nixpkgs/blob/597283ad8aa0b331c788e97c4c262d58877074ef/nixos/modules/services/networking/unifi.nix
   ccfg = config.homelab.cluster;
   cfg = config.homelab.unifi;
+  hllib = inputs.homelab-shared.lib;
   jrePkg = pkgs.jdk25_headless;
   mongodb-7_0 =
     (import inputs.nixpkgs-mongodb-pin {
@@ -65,10 +66,7 @@ in
       default = [ ];
     };
   };
-  imports = [
-    self.nixosModules.routed-ippool
-
-  ];
+  imports = [ self.nixosModules.routed-ippool ] ++ self.lib.importsApply [ ./homepage.nix ];
   config = lib.mkIf cfg.enable {
     assertions = [
       {
@@ -78,6 +76,31 @@ in
     ];
     services.k3s.images = [ image ];
     homelab.cluster.backup.volumes.unifi.unifi = [ "/backup" ];
+    setup-secrets = {
+      sources = {
+        UNIFI_USERNAME = {
+          description = "Unifi username (readonly)";
+          cmd = hllib.setup-secrets.mkScript pkgs "getKubeSecret unifi unifi-credentials username";
+        };
+        UNIFI_PASSWORD = {
+          description = "Unifi password (readonly)";
+          cmd = hllib.setup-secrets.mkScript pkgs "getKubeSecret unifi unifi-credentials password";
+        };
+      };
+      destinations = [
+        {
+          logPrefix = "Unifi credentials";
+          requires = [
+            "UNIFI_USERNAME"
+            "UNIFI_PASSWORD"
+          ];
+          cmd = hllib.setup-secrets.mkScript pkgs ''
+            setKubeSecret unifi unifi-credentials \
+              username "''${UNIFI_USERNAME:?}" \
+              password "''${UNIFI_PASSWORD:?}"'';
+        }
+      ];
+    };
     kubetree.resources.unifi = {
       certificate = {
         apiVersion = "cert-manager.io/v1";
