@@ -142,45 +142,26 @@ in
           type = "LoadBalancer";
           selector."app.kubernetes.io/name" = "unifi";
           ipFamilies = (lib.optional ccfg.enableIPv4 "IPv4") ++ (lib.optional ccfg.enableIPv6 "IPv6");
-          ports = [
-            {
-              name = "web";
+          portsByName = {
+            web = {
               port = 443;
               targetPort = 8443;
-            }
-            {
-              name = "inform";
-              port = 8080;
-              targetPort = 8080;
-            }
-            {
-              name = "portalredir";
-              port = 8880;
-              targetPort = 8880;
-            }
-            {
-              name = "portalredir-tls";
-              port = 8843;
-              targetPort = 8843;
-            }
-            {
-              name = "speed-test";
-              port = 6789;
-              targetPort = 6789;
-            }
-            {
-              name = "stun";
+            };
+            inform = 8080;
+            portalredir = 8880;
+            portalredir-tls = 8843;
+            speed-test = 6789;
+            stun = {
               port = 3478;
               targetPort = 3478;
               protocol = "UDP";
-            }
-            {
-              name = "discovery";
+            };
+            discovery = {
               port = 10001;
               targetPort = 10001;
               protocol = "UDP";
-            }
-          ];
+            };
+          };
         }
         // (lib.optionalAttrs (ccfg.enableIPv4 && ccfg.enableIPv6) {
           ipFamilyPolicy = "RequireDualStack";
