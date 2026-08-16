@@ -49,6 +49,7 @@ in
       description = "Whether to turn on masquerading (automatically turned on if \${config.homelab.privacyVPN.enable} is on)";
       type = lib.types.bool;
       default = config.homelab.privacyVPN.enable;
+      defaultText = lib.literalExpression "config.homelab.privacyVPN.enable";
     };
     extraConfig = lib.mkOption {
       description = "Additional Cilium helm configuration values to apply";

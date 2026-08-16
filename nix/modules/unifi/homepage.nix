@@ -15,6 +15,7 @@ in
       description = "integration of Unifi Controller with homepage";
       type = lib.types.bool;
       default = config.homelab.unifi.enable && config.homelab.homepage.enable;
+      defaultText = lib.literalExpression "config.homelab.unifi.enable && config.homelab.homepage.enable";
     };
   };
   imports = [
