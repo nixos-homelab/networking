@@ -30,6 +30,12 @@
       url = "github:nix-community/nixhelm";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    docs = {
+      url = "github:andsens/nix-docs";
+      inputs.systems.follows = "systems";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-parts.follows = "flake-parts";
+    };
   };
   outputs =
     {
@@ -65,6 +71,23 @@
             unifi = importApply ./nix/modules/unifi { inherit self inputs; };
           };
         };
+        perSystem =
+          { pkgs, lib, ... }:
+          let
+            options-docs = inputs.docs.lib.docs.options {
+              inherit pkgs;
+              modules = lib.attrValues self.nixosModules;
+              repoPath = toString self;
+              repoLinkPrefix = "https://github.com/nixos-homelab/networking/blob/main";
+            };
+          in
+          {
+            apps.update-docs.program = inputs.docs.lib.docs.updateRepo {
+              inherit pkgs;
+              paths."docs/options.md" = options-docs.optionsCommonMark;
+            };
+            packages.options-docs = options-docs.optionsCommonMark;
+          };
       }
     );
 }
