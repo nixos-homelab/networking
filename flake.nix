@@ -65,6 +65,7 @@
             cilium = importApply ./nix/modules/cilium { inherit self inputs; };
             client-vpn = importApply ./nix/modules/client-vpn { inherit self inputs; };
             external-dns = importApply ./nix/modules/external-dns { inherit self inputs; };
+            homepage = importApply ./nix/modules/homepage { inherit self inputs; };
             netutils = importApply ./nix/modules/netutils { inherit self inputs; };
             privacy-vpn = importApply ./nix/modules/privacy-vpn { inherit self inputs; };
             routed-ippool = importApply ./nix/modules/routed-ippool { inherit self inputs; };

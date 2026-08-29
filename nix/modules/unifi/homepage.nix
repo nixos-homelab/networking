@@ -22,6 +22,7 @@ in
   imports = [
     inputs.setup-secrets.nixosModules.default
     inputs.homelab-shared.nixosModules.homepage
+    self.nixosModules.homepage
   ];
   config = lib.mkIf cfg.enable {
     setup-secrets.destinations = [
@@ -39,14 +40,18 @@ in
     ];
     homelab.homepage = {
       widgets.unifi_console = {
-        type = "unifi_console";
-        url = "https://unifi.unifi";
-        username = "{{HOMEPAGE_VAR_UNIFI_USERNAME}}";
-        password = "{{HOMEPAGE_VAR_UNIFI_PASSWORD}}";
+        enable = lib.mkDefault true;
+        settings = {
+          type = "unifi_console";
+          url = "https://unifi.unifi";
+          username = "{{HOMEPAGE_VAR_UNIFI_USERNAME}}";
+          password = "{{HOMEPAGE_VAR_UNIFI_PASSWORD}}";
+        };
       };
-      assets."unifi.svg" = ./logo.svg;
-      bookmarks.Networking.unifi = {
-        icon = "/assets/unifi.svg";
+      sections.Networking.enable = lib.mkDefault true;
+      services.Networking.unifi = {
+        enable = lib.mkDefault true;
+        icon = "unifi.png";
         href = "https://unifi.${ccfg.domain}";
         description = "Unifi Controller";
       };
