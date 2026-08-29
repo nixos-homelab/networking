@@ -6,6 +6,7 @@
   ...
 }:
 let
+  ccfg = config.homelab.cluster;
   cfg = config.homelab.homepage.integrations.unifi;
   hllib = inputs.homelab-shared.lib;
 in
@@ -42,6 +43,12 @@ in
         url = "https://unifi.unifi";
         username = "{{HOMEPAGE_VAR_UNIFI_USERNAME}}";
         password = "{{HOMEPAGE_VAR_UNIFI_PASSWORD}}";
+      };
+      assets."unifi.svg" = ./logo.svg;
+      bookmarks.Networking.unifi = {
+        icon = "/assets/unifi.svg";
+        href = "https://unifi.${ccfg.domain}";
+        description = "Unifi Controller";
       };
       envFrom = [ { secretRef.name = "unifi-credentials"; } ];
       allowEgress = [ "unifi" ];
