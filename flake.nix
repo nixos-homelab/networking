@@ -74,20 +74,35 @@
         };
         perSystem =
           { pkgs, lib, ... }:
-          let
-            options-docs = inputs.docs.lib.docs.options {
-              inherit pkgs;
-              modules = lib.attrValues self.nixosModules;
-              repoPath = toString self;
-              repoLinkPrefix = "https://github.com/nixos-homelab/networking/blob/main";
-            };
-          in
           {
-            apps.update-docs.program = inputs.docs.lib.docs.updateRepo {
-              inherit pkgs;
-              paths."docs/options.md" = options-docs.optionsCommonMark;
+            packages = {
+              options-docs = inputs.docs.lib.docs.options {
+                inherit pkgs;
+                modules = lib.attrValues self.nixosModules;
+                repoPath = toString self;
+                repoLinkPrefix = "https://github.com/nixos-homelab/networking/blob/main";
+                prefixGroups = {
+                  cilium = [ "homelab.cilium" ];
+                  client-vpn = [ "homelab.client-vpn" ];
+                  external-dns = [ "homelab.external-dns" ];
+                  netutils = [ "homelab.netutils" ];
+                  privacy-vpn = [ "homelab.privacy-vpn" ];
+                  routed-ippool = [ "homelab.routed-ippool" ];
+                  unifi = [
+                    "homelab.unifi"
+                    "homelab.homepage.integrations.unifi"
+                  ];
+                  homepage = [ "homelab.homepage.sections" ];
+                };
+              };
+              manual-docs = inputs.docs.lib.mkdocs.manual {
+                inherit pkgs;
+                rootDoc = ./README.md;
+                pathMap = {
+                  cilium = ./nix/modules/cilium/README.md;
+                };
+              };
             };
-            packages.options-docs = options-docs.optionsCommonMark;
           };
       }
     );
