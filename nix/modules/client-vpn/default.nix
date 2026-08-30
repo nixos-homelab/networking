@@ -7,7 +7,7 @@
 }:
 let
   ccfg = config.homelab.cluster;
-  cfg = config.homelab.clientVPN;
+  cfg = config.homelab.client-vpn;
   container-utils = inputs.homelab-shared.packages.${pkgs.stdenv.hostPlatform.system}.container-utils;
   hllib = inputs.homelab-shared.lib;
   listenPort = 51820;
@@ -45,7 +45,7 @@ let
 in
 {
   key = "${toString __curPos.file}#modules.nixos.client-vpn";
-  options.homelab.clientVPN = {
+  options.homelab.client-vpn = {
     enable = lib.mkEnableOption "the client VPN gateway";
     debug = lib.mkEnableOption "debug mode";
     groups = lib.mkOption {
@@ -129,8 +129,8 @@ in
   config = {
     assertions =
       (lib.optional cfg.enable {
-        assertion = config.homelab.routedIPPool.enable;
-        message = "Client VPN depends on the routed loadbalancer IP Pool module. Enable with `homelab.routedIPPool = { enable=true; lbIpBlock4.cidr = ...; }`";
+        assertion = config.homelab.routed-ippool.enable;
+        message = "Client VPN depends on the routed loadbalancer IP Pool module. Enable with `homelab.routed-ippool = { enable=true; lbIpBlock4.cidr = ...; }`";
       })
       ++ (lib.mapAttrsToList (
         name: value:

@@ -46,10 +46,10 @@ in
       default = null;
     };
     masquerade.enable = lib.mkOption {
-      description = "Whether to turn on masquerading (automatically turned on if \${config.homelab.privacyVPN.enable} is on)";
+      description = "Whether to turn on masquerading (automatically turned on if \${config.homelab.privacy-vpn.enable} is on)";
       type = lib.types.bool;
-      default = config.homelab.privacyVPN.enable;
-      defaultText = lib.literalExpression "config.homelab.privacyVPN.enable";
+      default = config.homelab.privacy-vpn.enable;
+      defaultText = lib.literalExpression "config.homelab.privacy-vpn.enable";
     };
     extraConfig = lib.mkOption {
       description = "Additional Cilium helm configuration values to apply";
@@ -69,7 +69,7 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = !config.homelab.privacyVPN.enable || cfg.masquerade.enable;
+        assertion = !config.homelab.privacy-vpn.enable || cfg.masquerade.enable;
         message = "In order to use the privacy VPN, masquerading must be enabled (homelab.cluster.masquerade.enable)";
       }
     ];
@@ -100,7 +100,7 @@ in
             bgpControlPlane.enabled = cfg.bgp.enable;
             nodeIPAM.enabled = true; # TODO: Needed?
 
-            egressGateway.enabled = config.homelab.privacyVPN.enable;
+            egressGateway.enabled = config.homelab.privacy-vpn.enable;
 
             tls.secretsNamespace.name = "cilium";
             operator.replicas = 1;

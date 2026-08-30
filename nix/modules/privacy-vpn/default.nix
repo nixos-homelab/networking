@@ -6,12 +6,12 @@
   ...
 }:
 let
-  cfg = config.homelab.privacyVPN;
+  cfg = config.homelab.privacy-vpn;
   hllib = inputs.homelab-shared.lib;
 in
 {
   key = "${toString __curPos.file}#modules.nixos.privacy-vpn";
-  options.homelab.privacyVPN = {
+  options.homelab.privacy-vpn = {
     enable = lib.mkEnableOption "the privacy VPN";
     clientIP4 = lib.mkOption {
       description = "Internal tunnel IPv4 of the client";

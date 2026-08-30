@@ -6,7 +6,7 @@
   ...
 }:
 let
-  cfg = config.homelab.cluster.external-dns;
+  cfg = config.homelab.external-dns;
   ccfg = config.homelab.cluster;
   external-dns = pkgs.buildGo126Module rec {
     name = "external-dns";
@@ -59,7 +59,7 @@ let
 in
 {
   key = "${toString __curPos.file}#modules.nixos.external-dns";
-  options.homelab.cluster.external-dns = {
+  options.homelab.external-dns = {
     debug = lib.mkEnableOption "debug mode";
   };
   config = {

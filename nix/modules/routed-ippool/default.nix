@@ -7,11 +7,11 @@
 }:
 let
   ccfg = config.homelab.cluster;
-  cfg = config.homelab.routedIPPool;
+  cfg = config.homelab.routed-ippool;
 in
 {
   key = "${toString __curPos.file}#modules.nixos.routed-ippool";
-  options.homelab.routedIPPool = {
+  options.homelab.routed-ippool = {
     enable = lib.mkEnableOption "the loadbalancer IP pool that is routed to the cluster from the network";
     debug = lib.mkEnableOption "debug mode";
     lbIpBlock4.cidr = lib.mkOption {
