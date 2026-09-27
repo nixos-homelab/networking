@@ -115,6 +115,13 @@ in
         spec.endpointSelector.matchLabels."cluster.local/internet-egress" = "allow";
         spec.egress = [ { toEntities = [ "world" ]; } ];
       };
+      pod-from-internet = {
+        apiVersion = "cilium.io/v2";
+        kind = "CiliumClusterwideNetworkPolicy";
+        metadata.name = "pod-from-internet";
+        spec.endpointSelector.matchLabels."cluster.local/internet-ingress" = "allow";
+        spec.ingress = [ { fromEntities = [ "world" ]; } ];
+      };
       pod-to-gateway = {
         apiVersion = "cilium.io/v2";
         kind = "CiliumClusterwideNetworkPolicy";
