@@ -68,6 +68,9 @@ in
   };
   imports = [ self.nixosModules.routed-ippool ] ++ self.lib.importsApply [ ./homepage.nix ];
   config = lib.mkIf cfg.enable {
+    # The image is a gzipped tarball, so its contents aren't references of the system. Without this, a GC removes
+    # mongodb (unfree, so never substituted) and the next image change rebuilds it from source
+    system.extraDependencies = [ mongodb-7_0 ];
     assertions = [
       {
         assertion = config.homelab.postgresql.enable;
