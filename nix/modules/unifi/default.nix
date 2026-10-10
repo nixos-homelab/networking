@@ -73,7 +73,7 @@ in
     system.extraDependencies = [ mongodb-7_0 ];
     assertions = [
       {
-        assertion = config.homelab.postgresql.enable;
+        assertion = config.homelab.routed-ippool.enable;
         message = "Unifi depends on the routed loadbalancer IP Pool module. Enable with `homelab.routed-ippool = { enable=true; lbIpBlock4.cidr = ...; }`";
       }
     ];
