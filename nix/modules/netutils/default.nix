@@ -1,4 +1,4 @@
-{ self, ... }:
+{ inputs, ... }:
 {
   pkgs,
   lib,
@@ -6,7 +6,7 @@
   ...
 }:
 let
-  flakePkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
+  container-utils = inputs.homelab-shared.packages.${pkgs.stdenv.hostPlatform.system}.container-utils;
 in
 {
   key = "${toString __curPos.file}#modules.nixos.netutils";
@@ -57,7 +57,7 @@ in
           selector.matchLabels."app.kubernetes.io/name" = "netutils";
           template.metadata.labels."app.kubernetes.io/name" = "netutils";
           template.spec.containersByName.netutils = {
-            image = "${flakePkgs.container-utils.buildArgs.name}:${flakePkgs.container-utils.imageTag}";
+            image = "${container-utils.buildArgs.name}:${container-utils.imageTag}";
             imagePullPolicy = "Never";
             command = [
               "iperf2"
