@@ -10,6 +10,10 @@ let
   cfg = config.homelab.client-vpn;
   container-utils = inputs.homelab-shared.packages.${pkgs.stdenv.hostPlatform.system}.container-utils;
   hllib = inputs.homelab-shared.lib;
+  systemd-creds = lib.getExe' pkgs.systemd "systemd-creds";
+  credential = name: "wireguard-homelab-${name}-private-key";
+  credstoreKey = name: "/etc/credstore.encrypted/${credential name}";
+  legacyKeyFile = name: config.networking.wireguard.interfaces."homelab-${name}".privateKeyFile;
   listenPort = 51820;
   upScript = pkgs.writeShellScriptBin "up.sh" ''
     ${lib.getExe' pkgs.wireguard-tools "wg-quick"} up clients
@@ -162,9 +166,16 @@ in
             publicKey = lib.mkDefault cfg.groups.${name}.gatewayPublicKey;
           }
         ];
+        # Where the key was before it moved to the credstore, setup-secrets migrates it
         privateKeyFile = lib.mkDefault "/etc/secrets.d/homelab-${name}.vpn-key";
       };
     }) enabledGroupConfigs;
+    # nixpkgs loads the keys from privateKeyFile with LoadCredential, which stops all of networkd when a file is
+    # missing. The unit lists this after it, so it replaces those entries: the keys come from the credstore, decrypted,
+    # and a missing one only drops its interface.
+    systemd.services.systemd-networkd.serviceConfig.LoadCredentialEncrypted = map credential (
+      builtins.attrNames enabledGroupConfigs
+    );
     setup-secrets.sources =
       (lib.mapAttrs' (group: spec: {
         name = "CLIENT_VPN_${lib.toUpper group}";
@@ -181,9 +192,13 @@ in
         name = "HOMELAB_${lib.toUpper name}_VPN_PRIVATE_KEY";
         value = {
           description = "Private Key for homelab ${name} VPN connection";
-          cmd = hllib.setup-secrets.mkScript pkgs ''cat "${
-            config.networking.wireguard.interfaces."homelab-${name}".privateKeyFile
-          }"'';
+          cmd = hllib.setup-secrets.mkScript pkgs ''
+            if [[ -e ${credstoreKey name} ]]; then
+              ${systemd-creds} decrypt ${credstoreKey name} -
+            else
+              cat "${legacyKeyFile name}"
+            fi
+          '';
         };
       }) enabledGroupConfigs);
     setup-secrets.destinations = [
@@ -205,13 +220,18 @@ in
         envvar = "HOMELAB_${lib.toUpper name}_VPN_PRIVATE_KEY";
       in
       {
-        logPrefix = "Homelab ${name} VPN Private Key File";
+        logPrefix = "Homelab ${name} VPN Private Key";
         requires = [ envvar ];
         cmd = hllib.setup-secrets.mkScript pkgs ''
-          umask 077
-          printf "%s" "$${envvar}" >"${
-            config.networking.wireguard.interfaces."homelab-${name}".privateKeyFile
-          }"
+          if [[ ! -e ${credstoreKey name} ]] ||
+            [[ $(${systemd-creds} decrypt ${credstoreKey name} -) != "$${envvar}" ]]; then
+            mkdir -p -m 700 /etc/credstore.encrypted
+            printf "%s" "$${envvar}" |
+              ${systemd-creds} encrypt --with-key=tpm2 --name=${credential name} - ${credstoreKey name}
+            # networkd only imports credentials when it starts
+            ${lib.getExe' pkgs.systemd "systemctl"} try-restart systemd-networkd.service
+          fi
+          rm -f "${legacyKeyFile name}"
         '';
       }
     ) enabledGroupConfigs);
