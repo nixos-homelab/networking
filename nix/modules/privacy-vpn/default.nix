@@ -11,7 +11,6 @@ let
   systemd-creds = lib.getExe' pkgs.systemd "systemd-creds";
   credential = "wireguard-privacy-vpn-private-key";
   credstoreKey = "/etc/credstore.encrypted/${credential}";
-  legacyKeyFile = config.networking.wireguard.interfaces.privacy-vpn.privateKeyFile;
 in
 {
   key = "${toString __curPos.file}#modules.nixos.privacy-vpn";
@@ -80,23 +79,16 @@ in
             lib.optional (cfg.clientIP4 != null) "0.0.0.0/0" ++ lib.optional (cfg.clientIP6 != null) "::/0";
         }
       ];
-      # Where the key was before it moved to the credstore, setup-secrets migrates it
-      privateKeyFile = "/etc/secrets.d/privacy-vpn.key";
+      # A credential name, not a path: systemd looks it up in the credstore
+      privateKeyFile = credential;
     };
-    # nixpkgs loads the key from privateKeyFile with LoadCredential, which stops all of networkd when the file is
-    # missing. The unit lists this after it, so it replaces that entry: the key comes from the credstore, decrypted,
-    # and a missing one only drops this interface.
+    # nixpkgs loads privateKeyFile with LoadCredential, which doesn't decrypt. The unit lists this after it, so it
+    # replaces that entry. A missing key only drops this interface.
     systemd.services.systemd-networkd.serviceConfig.LoadCredentialEncrypted = [ credential ];
     setup-secrets = {
       sources.PRIVACY_VPN_PRIVATE_KEY = {
         description = "Private Key for privacy VPN connection";
-        cmd = hllib.setup-secrets.mkScript pkgs ''
-          if [[ -e ${credstoreKey} ]]; then
-            ${systemd-creds} decrypt ${credstoreKey} -
-          else
-            cat "${legacyKeyFile}"
-          fi
-        '';
+        cmd = hllib.setup-secrets.mkScript pkgs "${systemd-creds} decrypt ${credstoreKey} -";
       };
       destinations = [
         {
@@ -111,7 +103,6 @@ in
               # networkd only imports credentials when it starts
               ${lib.getExe' pkgs.systemd "systemctl"} try-restart systemd-networkd.service
             fi
-            rm -f "${legacyKeyFile}"
           '';
         }
       ];

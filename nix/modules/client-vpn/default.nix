@@ -13,7 +13,6 @@ let
   systemd-creds = lib.getExe' pkgs.systemd "systemd-creds";
   credential = name: "wireguard-homelab-${name}-private-key";
   credstoreKey = name: "/etc/credstore.encrypted/${credential name}";
-  legacyKeyFile = name: config.networking.wireguard.interfaces."homelab-${name}".privateKeyFile;
   listenPort = 51820;
   upScript = pkgs.writeShellScriptBin "up.sh" ''
     ${lib.getExe' pkgs.wireguard-tools "wg-quick"} up clients
@@ -166,13 +165,12 @@ in
             publicKey = lib.mkDefault cfg.groups.${name}.gatewayPublicKey;
           }
         ];
-        # Where the key was before it moved to the credstore, setup-secrets migrates it
-        privateKeyFile = lib.mkDefault "/etc/secrets.d/homelab-${name}.vpn-key";
+        # A credential name, not a path: systemd looks it up in the credstore
+        privateKeyFile = lib.mkDefault (credential name);
       };
     }) enabledGroupConfigs;
-    # nixpkgs loads the keys from privateKeyFile with LoadCredential, which stops all of networkd when a file is
-    # missing. The unit lists this after it, so it replaces those entries: the keys come from the credstore, decrypted,
-    # and a missing one only drops its interface.
+    # nixpkgs loads privateKeyFile with LoadCredential, which doesn't decrypt. The unit lists this after it, so it
+    # replaces those entries. A missing key only drops its interface.
     systemd.services.systemd-networkd.serviceConfig.LoadCredentialEncrypted = map credential (
       builtins.attrNames enabledGroupConfigs
     );
@@ -192,13 +190,7 @@ in
         name = "HOMELAB_${lib.toUpper name}_VPN_PRIVATE_KEY";
         value = {
           description = "Private Key for homelab ${name} VPN connection";
-          cmd = hllib.setup-secrets.mkScript pkgs ''
-            if [[ -e ${credstoreKey name} ]]; then
-              ${systemd-creds} decrypt ${credstoreKey name} -
-            else
-              cat "${legacyKeyFile name}"
-            fi
-          '';
+          cmd = hllib.setup-secrets.mkScript pkgs "${systemd-creds} decrypt ${credstoreKey name} -";
         };
       }) enabledGroupConfigs);
     setup-secrets.destinations = [
@@ -231,7 +223,6 @@ in
             # networkd only imports credentials when it starts
             ${lib.getExe' pkgs.systemd "systemctl"} try-restart systemd-networkd.service
           fi
-          rm -f "${legacyKeyFile name}"
         '';
       }
     ) enabledGroupConfigs);
