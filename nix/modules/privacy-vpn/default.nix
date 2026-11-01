@@ -40,6 +40,17 @@ in
       description = "Internal tunnel IPv6 of the VPN gateway";
       type = lib.types.nullOr lib.types.str;
     };
+    extraPeerConfig = lib.mkOption {
+      description = ''
+        Further settings for the gateway's peer, merged into its entry in
+        `networking.wireguard.interfaces.privacy-vpn.peers`, which checks them.
+      '';
+      type = lib.types.attrsOf lib.types.anything;
+      default = { };
+      example = {
+        persistentKeepalive = 25;
+      };
+    };
   };
   imports = [ inputs.setup-secrets.nixosModules.default ];
   config = lib.mkIf cfg.enable {
@@ -71,13 +82,16 @@ in
         ++ lib.optional (cfg.clientIP6 != null) "${cfg.clientIP6}/128";
       table = "4242";
       peers = [
-        {
-          name = "Privacy VPN Gateway";
-          endpoint = cfg.gatewayAddress;
-          publicKey = cfg.gatewayPublicKey;
-          allowedIPs =
-            lib.optional (cfg.clientIP4 != null) "0.0.0.0/0" ++ lib.optional (cfg.clientIP6 != null) "::/0";
-        }
+        (
+          {
+            name = "Privacy VPN Gateway";
+            endpoint = cfg.gatewayAddress;
+            publicKey = cfg.gatewayPublicKey;
+            allowedIPs =
+              lib.optional (cfg.clientIP4 != null) "0.0.0.0/0" ++ lib.optional (cfg.clientIP6 != null) "::/0";
+          }
+          // cfg.extraPeerConfig
+        )
       ];
       # A credential name, not a path: systemd looks it up in the credstore
       privateKeyFile = credential;
