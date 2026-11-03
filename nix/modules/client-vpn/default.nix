@@ -354,10 +354,8 @@ in
               mainContainer = {
                 image = "${image.buildArgs.name}:${image.imageTag}";
                 imagePullPolicy = "Never";
-                addCapabilities = [
-                  "NET_ADMIN"
-                  "SYS_MODULE"
-                ];
+                # The kernel loads the wireguard module itself on `ip link add`, which only needs NET_ADMIN
+                addCapabilities = [ "NET_ADMIN" ];
                 securityContext = {
                   runAsUser = 0;
                   runAsGroup = 0;
@@ -371,14 +369,9 @@ in
                     name = "config-tmp";
                     subPath = "clients.conf";
                   };
-                  "/dev/net/tun" = "dev-net-tun";
                 };
               };
               volumesByName = {
-                dev-net-tun.hostPath = {
-                  path = "/dev/net/tun";
-                  type = "CharDevice";
-                };
                 config-tmp.emptyDir.medium = "Memory";
                 config.configMap.name = "client-vpn";
               };
