@@ -104,7 +104,7 @@ in
       pod-from-apiserver = {
         apiVersion = "cilium.io/v2";
         kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-to-apiserver";
+        metadata.name = "pod-from-apiserver";
         spec.endpointSelector.matchLabels."cluster.local/apiserver-ingress" = "allow";
         spec.ingress = [ { fromEntities = [ "kube-apiserver" ]; } ];
       };
@@ -240,7 +240,7 @@ in
         kind = "CiliumClusterwideNetworkPolicy";
         metadata.name = "pod-to-local-lan";
         spec.endpointSelector.matchLabels."cluster.local/local-lan-egress" = "allow";
-        spec.ingress = [ { fromCIDRSet = [ { cidrGroupRef = "local-lan"; } ]; } ];
+        spec.egress = [ { toCIDRSet = [ { cidrGroupRef = "local-lan"; } ]; } ];
       };
     };
   };
