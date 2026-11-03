@@ -10,6 +10,12 @@ let
   cfg = config.homelab.cilium;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
   charts = inputs.nixhelm.charts { inherit pkgs; };
+  lanCIDRs = lib.optionals cfg.cidr-groups.enable (
+    lib.remove null [
+      cfg.cidr-groups.localLANCIDR4
+      cfg.cidr-groups.localLANCIDR6
+    ]
+  );
 in
 {
   key = "${toString __curPos.file}#modules.nixos.cilium";
@@ -124,6 +130,8 @@ in
 
             bpf.masquerade = cfg.masquerade.enable;
           }
+          # NodePorts get past the host firewall, so serve them on the LAN's addresses only, not the privacy VPN's
+          // lib.optionalAttrs (lanCIDRs != [ ]) { nodePort.addresses = lanCIDRs; }
           // lib.optionalAttrs ccfg.enableIPv4 {
             ipv4NativeRoutingCIDR = ccfg.podCidr4;
             enableIPv4Masquerade = cfg.masquerade.enable;
