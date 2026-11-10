@@ -10,6 +10,63 @@ let
   cfg = config.homelab.cilium;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
   charts = inputs.nixhelm.charts { inherit pkgs; };
+  # The chart's images, preloaded from images.lock
+  cilium = inputs.homelab-shared.lib.images.chart pkgs ./images.lock (
+    kubelib.buildHelmChart {
+      name = "cilium";
+      namespace = "cilium";
+      chart = charts.cilium.cilium;
+      values = lib.recursiveUpdate (
+        {
+          hostFirewall.enabled = cfg.firewall.enable;
+
+          ipam.mode = "kubernetes";
+
+          routingMode = "native";
+          autoDirectNodeRoutes = true;
+
+          kubeProxyReplacement = true;
+
+          bgpControlPlane.enabled = cfg.bgp.enable;
+          nodeIPAM.enabled = true; # TODO: Needed?
+
+          egressGateway.enabled = config.homelab.privacy-vpn.enable;
+
+          tls.secretsNamespace.name = "cilium";
+          operator.replicas = 1;
+          kubeConfigPath = "/etc/rancher/k3s/k3s.yaml";
+          k8sServiceHost = "127.0.0.1";
+          k8sServicePort = "6443";
+
+          envoy.enabled = false;
+          hubble.enabled = false;
+          hubble.relay.gops.enabled = false;
+
+          gatewayAPI.enabled = true;
+          gatewayAPI.enableAlpn = true;
+          gatewayAPI.enableAppProtocol = true;
+          gatewayAPI.gatewayClass.create = "true";
+
+          ipv4.enabled = ccfg.enableIPv4;
+          ipv6.enabled = ccfg.enableIPv6;
+          k8s.requireIPv4PodCIDR = ccfg.enableIPv4;
+          k8s.requireIPv6PodCIDR = ccfg.enableIPv6;
+
+          bpf.masquerade = cfg.masquerade.enable;
+        }
+        # NodePorts get past the host firewall, so serve them on the LAN's addresses only, not the privacy VPN's
+        // lib.optionalAttrs (lanCIDRs != [ ]) { nodePort.addresses = lanCIDRs; }
+        // lib.optionalAttrs ccfg.enableIPv4 {
+          ipv4NativeRoutingCIDR = ccfg.podCidr4;
+          enableIPv4Masquerade = cfg.masquerade.enable;
+        }
+        // lib.optionalAttrs ccfg.enableIPv6 {
+          ipv6NativeRoutingCIDR = ccfg.podCidr6;
+          enableIPv6Masquerade = cfg.masquerade.enable;
+        }
+      ) cfg.extraConfig;
+    }
+  );
   lanCIDRs = lib.optionals cfg.cidr-groups.enable (
     lib.remove null [
       cfg.cidr-groups.localLANCIDR4
@@ -83,65 +140,13 @@ in
       "traefik"
       "servicelb"
     ];
+    services.k3s.images = cilium.images;
     services.k3s.manifests = {
       gatewayapi.source = pkgs.fetchurl {
         url = "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml";
         hash = "sha256-ZOx2YJpqyIXgQF3qecpQnCKfoBnTQvCFeqi2vci4upI=";
       };
-      cilium-helm.source = kubelib.buildHelmChart {
-        name = "cilium";
-        namespace = "cilium";
-        chart = charts.cilium.cilium;
-        values = lib.recursiveUpdate (
-          {
-            hostFirewall.enabled = cfg.firewall.enable;
-
-            ipam.mode = "kubernetes";
-
-            routingMode = "native";
-            autoDirectNodeRoutes = true;
-
-            kubeProxyReplacement = true;
-
-            bgpControlPlane.enabled = cfg.bgp.enable;
-            nodeIPAM.enabled = true; # TODO: Needed?
-
-            egressGateway.enabled = config.homelab.privacy-vpn.enable;
-
-            tls.secretsNamespace.name = "cilium";
-            operator.replicas = 1;
-            kubeConfigPath = "/etc/rancher/k3s/k3s.yaml";
-            k8sServiceHost = "127.0.0.1";
-            k8sServicePort = "6443";
-
-            envoy.enabled = false;
-            hubble.enabled = false;
-            hubble.relay.gops.enabled = false;
-
-            gatewayAPI.enabled = true;
-            gatewayAPI.enableAlpn = true;
-            gatewayAPI.enableAppProtocol = true;
-            gatewayAPI.gatewayClass.create = "true";
-
-            ipv4.enabled = ccfg.enableIPv4;
-            ipv6.enabled = ccfg.enableIPv6;
-            k8s.requireIPv4PodCIDR = ccfg.enableIPv4;
-            k8s.requireIPv6PodCIDR = ccfg.enableIPv6;
-
-            bpf.masquerade = cfg.masquerade.enable;
-          }
-          # NodePorts get past the host firewall, so serve them on the LAN's addresses only, not the privacy VPN's
-          // lib.optionalAttrs (lanCIDRs != [ ]) { nodePort.addresses = lanCIDRs; }
-          // lib.optionalAttrs ccfg.enableIPv4 {
-            ipv4NativeRoutingCIDR = ccfg.podCidr4;
-            enableIPv4Masquerade = cfg.masquerade.enable;
-          }
-          // lib.optionalAttrs ccfg.enableIPv6 {
-            ipv6NativeRoutingCIDR = ccfg.podCidr6;
-            enableIPv6Masquerade = cfg.masquerade.enable;
-          }
-        ) cfg.extraConfig;
-      };
+      cilium-helm.source = cilium.manifest;
     };
 
     kubetree.resources.cilium-lbippool.pool = {

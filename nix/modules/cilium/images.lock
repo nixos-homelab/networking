@@ -1,0 +1,10 @@
+{
+  "quay.io/cilium/cilium:v1.20.4@sha256:20fe92e4c86641233a450098c158d2d29085f3419931ab6bf681d2485dedf16e": {
+    "digest": "sha256:20fe92e4c86641233a450098c158d2d29085f3419931ab6bf681d2485dedf16e",
+    "hash": "sha256-19WM3v/7Mc2+vNMEo8WmELrVjezxkY+gPDCAPTvlOdo="
+  },
+  "quay.io/cilium/operator-generic:v1.20.4@sha256:7a7a3489dc66ad67e420d285c8a8d2e169b0957ad15e120f593d27081bf38d82": {
+    "digest": "sha256:7a7a3489dc66ad67e420d285c8a8d2e169b0957ad15e120f593d27081bf38d82",
+    "hash": "sha256-lSOKJtbal7RxPZWFyyqo7bfakuDiqS7u6AUEgrJ1XEA="
+  }
+}
