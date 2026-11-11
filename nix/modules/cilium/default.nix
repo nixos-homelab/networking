@@ -11,6 +11,19 @@ let
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
   charts = inputs.nixhelm.charts { inherit pkgs; };
   # The chart's images, preloaded from images.lock
+  pins = inputs.homelab-shared.lib.pins.refs ../../../.github/workflows/pins.yaml;
+  gatewayAPI =
+    inputs.homelab-shared.lib.pins.locked ../../../.github/pins.lock "experimental-install"
+      pins."kubernetes-sigs/gateway-api"
+      (
+        hash:
+        pkgs.fetchurl {
+          url = "https://github.com/kubernetes-sigs/gateway-api/releases/download/${
+            pins."kubernetes-sigs/gateway-api"
+          }/experimental-install.yaml";
+          inherit hash;
+        }
+      );
   cilium = inputs.homelab-shared.lib.images.chart pkgs ./images.lock (
     kubelib.buildHelmChart {
       name = "cilium";
@@ -131,6 +144,8 @@ in
     ++ [ self.nixosModules.privacy-vpn ];
   config = lib.mkIf cfg.enable {
     homelab.cluster.imageLocks.${toString ./images.lock} = cilium.refs;
+    homelab.cluster.sourceLocks.${toString ../../../.github/pins.lock}.${gatewayAPI.key} =
+      gatewayAPI.unlocked;
     assertions = [
       {
         assertion = !config.homelab.privacy-vpn.enable || cfg.masquerade.enable;
@@ -143,10 +158,7 @@ in
     ];
     services.k3s.images = cilium.images;
     services.k3s.manifests = {
-      gatewayapi.source = pkgs.fetchurl {
-        url = "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml";
-        hash = "sha256-ZOx2YJpqyIXgQF3qecpQnCKfoBnTQvCFeqi2vci4upI=";
-      };
+      gatewayapi.source = gatewayAPI.src;
       cilium-helm.source = cilium.manifest;
     };
 
