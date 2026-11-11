@@ -130,6 +130,7 @@ in
     ]
     ++ [ self.nixosModules.privacy-vpn ];
   config = lib.mkIf cfg.enable {
+    homelab.cluster.imageLocks.${toString ./images.lock} = cilium.refs;
     assertions = [
       {
         assertion = !config.homelab.privacy-vpn.enable || cfg.masquerade.enable;
