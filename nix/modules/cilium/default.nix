@@ -156,6 +156,12 @@ in
       "traefik"
       "servicelb"
     ];
+    homelab.kubernetes.submodules.defaults = [
+      {
+        name = "workload";
+        default = ./workload-policies.nix;
+      }
+    ];
     services.k3s.images = cilium.images;
     services.k3s.manifests = {
       gatewayapi.source = gatewayAPI.src;

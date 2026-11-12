@@ -25,6 +25,16 @@ kubetree.resources.node-exporter.netpol = {
 };
 ```
 
+## kubenix workloads
+
+The same pair of policies for every
+[`workload`](https://github.com/nixos-homelab/shared/blob/main/nix/modules/cluster/kubenix/README.md)
+instance with `ports`, added through kubenix `submodules.defaults` when
+`homelab.cilium.enable` is set. They go in the manifest of the instance;
+change them through its `config`, as
+`kubernetes.resources.ciliumClusterwideNetworkPolicies.pod-to-<workload>`
+and `kubernetes.resources.ciliumNetworkPolicies.<workload>-from-pod`.
+
 ## `toPortsFlattened`
 
 A shorthand for `spec.ingress[]`/`spec.egress[]` on any real
