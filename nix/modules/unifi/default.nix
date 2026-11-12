@@ -124,58 +124,6 @@ in
           };
         };
       };
-      service = {
-        apiVersion = "v1";
-        kind = "Service";
-        metadata = {
-          namespace = "unifi";
-          name = "unifi";
-          labels = {
-            "app.kubernetes.io/name" = "unifi";
-            "cluster.local/ippool" = "routed";
-          };
-          annotations = {
-            "external-dns.alpha.kubernetes.io/hostname" = "unifi.${ccfg.domain}";
-          }
-          // lib.optionalAttrs (builtins.length cfg.reservedIPs > 0) ({
-            "lbipam.cilium.io/ips" = lib.join "," cfg.reservedIPs;
-          });
-        };
-        spec = {
-          type = "LoadBalancer";
-          selector."app.kubernetes.io/name" = "unifi";
-          ipFamilies = (lib.optional ccfg.enableIPv4 "IPv4") ++ (lib.optional ccfg.enableIPv6 "IPv6");
-          portsByName = {
-            web = {
-              port = 443;
-              targetPort = 8443;
-            };
-            inform = 8080;
-            portalredir = 8880;
-            portalredir-tls = 8843;
-            speed-test = 6789;
-            stun = {
-              port = 3478;
-              targetPort = 3478;
-              protocol = "UDP";
-            };
-            discovery = {
-              port = 10001;
-              targetPort = 10001;
-              protocol = "UDP";
-            };
-          };
-        }
-        // (lib.optionalAttrs (ccfg.enableIPv4 && ccfg.enableIPv6) {
-          ipFamilyPolicy = "RequireDualStack";
-        });
-      };
-      netpols = {
-        apiVersion = "cluster.local";
-        kind = "NetpolMacro";
-        metadata.name = "unifi";
-        spec.ports = [ 8443 ];
-      };
       macro = {
         apiVersion = "cluster.local";
         kind = "WorkloadMacro";
@@ -189,6 +137,29 @@ in
             "internet"
           ];
           dataPath = "/var/lib/unifi/data";
+          service = {
+            metadata = {
+              labels."cluster.local/ippool" = "routed";
+              annotations = {
+                "external-dns.alpha.kubernetes.io/hostname" = "unifi.${ccfg.domain}";
+              }
+              // lib.optionalAttrs (builtins.length cfg.reservedIPs > 0) ({
+                "lbipam.cilium.io/ips" = lib.join "," cfg.reservedIPs;
+              });
+            };
+            spec = {
+              type = "LoadBalancer";
+              ipFamilies = (lib.optional ccfg.enableIPv4 "IPv4") ++ (lib.optional ccfg.enableIPv6 "IPv6");
+              portsByName.web = {
+                port = 443;
+                targetPort = 8443;
+              };
+            }
+            // (lib.optionalAttrs (ccfg.enableIPv4 && ccfg.enableIPv6) {
+              ipFamilyPolicy = "RequireDualStack";
+            });
+          };
+          netpol.spec.ports = [ 8443 ];
           podSpecMacro = {
             initContainersByName.ln-keystore = {
               image = "${image.imageName}:${image.imageTag}";
