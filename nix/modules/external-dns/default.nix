@@ -20,6 +20,11 @@ let
     };
     proxyVendor = true;
     vendorHash = "sha256-YFRYlo0WEfLG+A+bnQWUdFiJwclmLh9c8jCTKjDmPK8=";
+    subPackages = [ "." ]; # The rest are code generators
+    ldflags = [
+      "-s"
+      "-w"
+    ];
 
     doCheck = false; # Tests require kubebuilder running through `make test`
   };
@@ -43,6 +48,10 @@ let
     };
     proxyVendor = true;
     vendorHash = "sha256-gcRQRHOjFpT64Qm95FbwnF3jDdzigiiCsMlWu7ooeZw=";
+    ldflags = [
+      "-s"
+      "-w"
+    ];
   };
   webhookImage = pkgs.dockerTools.buildImage {
     name = "cluster.local/${webhook.name}";
