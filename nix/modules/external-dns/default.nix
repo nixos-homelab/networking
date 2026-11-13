@@ -1,4 +1,4 @@
-{ ... }:
+{ inputs, ... }:
 {
   lib,
   pkgs,
@@ -9,6 +9,11 @@ let
   cfg = config.homelab.external-dns;
   ccfg = config.homelab.cluster;
   values = lib.mapAttrs (_: value: { inherit value; });
+  kubelib = inputs.kube-generators.lib { inherit pkgs; };
+  dnsendpointCrd = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/kubernetes-sigs/external-dns/refs/tags/v0.20.0/charts/external-dns/crds/dnsendpoints.externaldns.k8s.io.yaml";
+    hash = "sha256-lvQ4PVUKBNfHizMS7cbg+dq5d32Blf9M/cdqDKlYe74=";
+  };
   external-dns = pkgs.buildGo126Module rec {
     name = "external-dns";
     version = "v0.21.0";
@@ -78,12 +83,13 @@ in
       webhookImage
     ];
     services.k3s.manifests = {
-      dnsendpoint.source = pkgs.fetchurl {
-        url = "https://raw.githubusercontent.com/kubernetes-sigs/external-dns/refs/tags/v0.20.0/charts/external-dns/crds/dnsendpoints.externaldns.k8s.io.yaml";
-        hash = "sha256-lvQ4PVUKBNfHizMS7cbg+dq5d32Blf9M/cdqDKlYe74=";
-      };
+      dnsendpoint.source = dnsendpointCrd;
       external-dns-static.source = ./external-dns.yaml;
     };
+    # DNSEndpoint, typed from the CRD installed above
+    homelab.kubernetes.kubernetes.customTypes = lib.concatMap inputs.homelab-shared.lib.crd2types.customTypes (
+      kubelib.fromYAML (builtins.readFile dnsendpointCrd)
+    );
     homelab.kubernetes.submodules.instances.external-dns = {
       submodule = "deployment";
       args = {
