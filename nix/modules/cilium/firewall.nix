@@ -72,11 +72,12 @@ in
         spec.nodeSelector.matchLabels = { };
         spec.ingress = [
           { fromEntities = [ "cluster" ]; }
-          {
-            fromCIDRSet = [ { cidrGroupRef = "local-lan"; } ];
-            toPorts = self.lib.toPorts lan;
-          }
         ]
+        # Without ports the rule would open every port to the LAN
+        ++ lib.optional (lan != [ ]) {
+          fromCIDRSet = [ { cidrGroupRef = "local-lan"; } ];
+          toPorts = self.lib.toPorts lan;
+        }
         ++ lib.optional (world != [ ]) { toPorts = self.lib.toPorts world; }
         ++ [
           {
