@@ -8,6 +8,7 @@
 let
   cfg = config.homelab.external-dns;
   ccfg = config.homelab.cluster;
+  values = lib.mapAttrs (_: value: { inherit value; });
   external-dns = pkgs.buildGo126Module rec {
     name = "external-dns";
     version = "v0.21.0";
@@ -83,123 +84,122 @@ in
       };
       external-dns-static.source = ./external-dns.yaml;
     };
-    kubetree.resources = {
-      external-dns.deployment = {
-        apiVersion = "cluster.local";
-        kind = "DeploymentMacro";
-        metadata.name = "external-dns";
-        spec = {
-          allowEgress = [
-            "apiserver"
-            "internet"
-          ];
-          podSpecMacro = {
-            serviceAccountName = "external-dns";
-            mainContainer = {
-              image = "${externalDNSImage.buildArgs.name}:${externalDNSImage.imageTag}";
-              securityContext = {
-                runAsGroup = 65534;
-                runAsUser = 65534;
-              };
-              envByName = {
-                EXTERNAL_DNS_SOURCE = ''
-                  crd
-                  service
-                  ingress
-                  gateway-httproute
-                  gateway-tlsroute
-                  gateway-grpcroute
-                '';
-                EXTERNAL_DNS_MANAGED_RECORD_TYPES = ''
-                  A
-                  AAAA
-                  CNAME
-                  MX
-                '';
-                EXTERNAL_DNS_EVENTS_EMIT = ''
-                  RecordReady
-                  RecordDeleted
-                  RecordError
-                '';
-                EXTERNAL_DNS_TXT_PREFIX = "edns-%{record_type}.";
-                EXTERNAL_DNS_TXT_OWNER_ID = "homelab";
-                EXTERNAL_DNS_EVENTS = "1";
-                EXTERNAL_DNS_INTERVAL = "5m";
-                EXTERNAL_DNS_PROVIDER = "webhook";
-                EXTERNAL_DNS_MIN_TTL = "300s";
-              };
-              portsByName.metrics = 7979;
-              livenessProbe.httpGet = {
-                path = "/healthz";
-                port = "metrics";
-              };
-              readinessProbe.httpGet = {
-                path = "/healthz";
-                port = "metrics";
-              };
+    homelab.kubernetes.submodules.instances.external-dns = {
+      submodule = "deployment";
+      args = {
+        allowEgress = [
+          "apiserver"
+          "internet"
+        ];
+        ports.metrics = 7979;
+        # Nothing in the cluster reaches it
+        policyPorts = [ ];
+        container = {
+          image = "${externalDNSImage.buildArgs.name}:${externalDNSImage.imageTag}";
+          securityContext = {
+            runAsGroup = 65534;
+            runAsUser = 65534;
+          };
+          env = values {
+            EXTERNAL_DNS_SOURCE = ''
+              crd
+              service
+              ingress
+              gateway-httproute
+              gateway-tlsroute
+              gateway-grpcroute
+            '';
+            EXTERNAL_DNS_MANAGED_RECORD_TYPES = ''
+              A
+              AAAA
+              CNAME
+              MX
+            '';
+            EXTERNAL_DNS_EVENTS_EMIT = ''
+              RecordReady
+              RecordDeleted
+              RecordError
+            '';
+            EXTERNAL_DNS_TXT_PREFIX = "edns-%{record_type}.";
+            EXTERNAL_DNS_TXT_OWNER_ID = "homelab";
+            EXTERNAL_DNS_EVENTS = "1";
+            EXTERNAL_DNS_INTERVAL = "5m";
+            EXTERNAL_DNS_PROVIDER = "webhook";
+            EXTERNAL_DNS_MIN_TTL = "300s";
+          };
+          livenessProbe.httpGet = {
+            path = "/healthz";
+            port = "metrics";
+          };
+          readinessProbe.httpGet = {
+            path = "/healthz";
+            port = "metrics";
+          };
+        };
+      };
+      config.kubernetes.resources.deployments.external-dns.spec.template.spec = {
+        serviceAccountName = "external-dns";
+        containers = {
+          external-dns-node-source = {
+            image = "${externalDNSImage.buildArgs.name}:${externalDNSImage.imageTag}";
+            securityContext = {
+              runAsGroup = 65534;
+              runAsUser = 65534;
+              allowPrivilegeEscalation = false;
+              readOnlyRootFilesystem = true;
+              capabilities.add = [ "NET_BIND_SERVICE" ];
+              capabilities.drop = [ "ALL" ];
             };
-            containersByName.external-dns-node-source = {
-              image = "${externalDNSImage.buildArgs.name}:${externalDNSImage.imageTag}";
-              securityContext = {
-                runAsGroup = 65534;
-                runAsUser = 65534;
-                allowPrivilegeEscalation = false;
-                readOnlyRootFilesystem = true;
-                capabilities.add = [ "NET_BIND_SERVICE" ];
-                capabilities.drop = [ "ALL" ];
-              };
-              envByName = {
-                EXTERNAL_DNS_METRICS_ADDRESS = ":7980";
-                EXTERNAL_DNS_FQDN_TEMPLATE = "{{ .Name }}.${ccfg.domain}";
-                EXTERNAL_DNS_SOURCE = "node";
-                EXTERNAL_DNS_EXPOSE_INTERNAL_IPV6 = "1";
-                EXTERNAL_DNS_EVENTS_EMIT = ''
-                  RecordReady
-                  RecordDeleted
-                  RecordError
-                '';
-                EXTERNAL_DNS_TXT_PREFIX = "edns-%{record_type}.";
-                EXTERNAL_DNS_TXT_OWNER_ID = "homelab-node-source";
-                EXTERNAL_DNS_EVENTS = "1";
-                EXTERNAL_DNS_INTERVAL = "5m";
-                EXTERNAL_DNS_PROVIDER = "webhook";
-                EXTERNAL_DNS_MIN_TTL = "300s";
-              };
-              portsByName.metrics-node = 7980;
-              livenessProbe.httpGet = {
-                path = "/healthz";
-                port = "metrics-node";
-              };
-              readinessProbe.httpGet = {
-                path = "/healthz";
-                port = "metrics-node";
-              };
+            env = values {
+              EXTERNAL_DNS_METRICS_ADDRESS = ":7980";
+              EXTERNAL_DNS_FQDN_TEMPLATE = "{{ .Name }}.${ccfg.domain}";
+              EXTERNAL_DNS_SOURCE = "node";
+              EXTERNAL_DNS_EXPOSE_INTERNAL_IPV6 = "1";
+              EXTERNAL_DNS_EVENTS_EMIT = ''
+                RecordReady
+                RecordDeleted
+                RecordError
+              '';
+              EXTERNAL_DNS_TXT_PREFIX = "edns-%{record_type}.";
+              EXTERNAL_DNS_TXT_OWNER_ID = "homelab-node-source";
+              EXTERNAL_DNS_EVENTS = "1";
+              EXTERNAL_DNS_INTERVAL = "5m";
+              EXTERNAL_DNS_PROVIDER = "webhook";
+              EXTERNAL_DNS_MIN_TTL = "300s";
             };
-            containersByName.external-dns-libdns-webhook = {
-              name = "external-dns-libdns-webhook";
-              image = "${webhookImage.buildArgs.name}:${webhookImage.imageTag}";
-              imagePullPolicy = "Never";
-              securityContext = {
-                runAsGroup = 65534;
-                runAsUser = 65534;
-                allowPrivilegeEscalation = false;
-                readOnlyRootFilesystem = true;
-                capabilities.add = [ "NET_BIND_SERVICE" ];
-                capabilities.drop = [ "ALL" ];
-              };
-              envByName = {
-                LIBDNS_PROVIDER_ZONES = config.homelab.cluster.domain;
-                LIBDNS_WEBHOOK_LISTEN = ":8888";
-              };
-              portsByName.api = 8888;
-              livenessProbe.httpGet = {
-                path = "/healthz";
-                port = 8888;
-              };
-              readinessProbe.httpGet = {
-                path = "/healthz";
-                port = 8888;
-              };
+            ports.metrics-node.containerPort = 7980;
+            livenessProbe.httpGet = {
+              path = "/healthz";
+              port = "metrics-node";
+            };
+            readinessProbe.httpGet = {
+              path = "/healthz";
+              port = "metrics-node";
+            };
+          };
+          external-dns-libdns-webhook = {
+            image = "${webhookImage.buildArgs.name}:${webhookImage.imageTag}";
+            imagePullPolicy = "Never";
+            securityContext = {
+              runAsGroup = 65534;
+              runAsUser = 65534;
+              allowPrivilegeEscalation = false;
+              readOnlyRootFilesystem = true;
+              capabilities.add = [ "NET_BIND_SERVICE" ];
+              capabilities.drop = [ "ALL" ];
+            };
+            env = values {
+              LIBDNS_PROVIDER_ZONES = config.homelab.cluster.domain;
+              LIBDNS_WEBHOOK_LISTEN = ":8888";
+            };
+            ports.api.containerPort = 8888;
+            livenessProbe.httpGet = {
+              path = "/healthz";
+              port = 8888;
+            };
+            readinessProbe.httpGet = {
+              path = "/healthz";
+              port = 8888;
             };
           };
         };

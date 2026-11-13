@@ -60,11 +60,10 @@ in
         message = "In order to use the privacy VPN, masquerading must be enabled (homelab.cluster.masquerade.enable)";
       }
     ];
-    kubetree.resources = {
-      vpn-egress.privacy-vpn = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumEgressGatewayPolicy";
-        metadata.name = "privacy-vpn";
+    homelab.kubernetes.submodules.instances.vpn-egress = {
+      submodule = "manifest";
+      config.kubernetes.resources.ciliumEgressGatewayPolicies.privacy-vpn = {
+        metadata.namespace = null;
         spec = {
           egressGateway = {
             nodeSelector.matchLabels."node-role.kubernetes.io/control-plane" = "true";

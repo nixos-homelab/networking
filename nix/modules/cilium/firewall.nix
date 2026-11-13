@@ -1,4 +1,4 @@
-{ ... }:
+{ self, ... }:
 {
   config,
   lib,
@@ -11,20 +11,20 @@ let
   fw = config.networking.firewall;
   # Host policies match sources, not devices: what reaches the host on its LAN device comes from the LAN (the gateway
   # forwards nothing to it), what comes through the privacy VPN's port mapping from anywhere
-  toPorts =
+  portsOf =
     ports:
     map (port: {
-      port = builtins.toString port;
+      inherit port;
       protocol = "TCP";
     }) ports.allowedTCPPorts
     ++ map (port: {
-      port = builtins.toString port;
+      inherit port;
       protocol = "UDP";
     }) ports.allowedUDPPorts
     ++ map (
       { from, to }:
       {
-        port = builtins.toString from;
+        port = from;
         endPort = to;
         protocol = "TCP";
       }
@@ -32,13 +32,13 @@ let
     ++ map (
       { from, to }:
       {
-        port = builtins.toString from;
+        port = from;
         endPort = to;
         protocol = "UDP";
       }
     ) ports.allowedUDPPortRanges;
-  lan = toPorts fw;
-  world = lib.optionals (fw.interfaces ? privacy-vpn) (toPorts fw.interfaces.privacy-vpn);
+  lan = portsOf fw;
+  world = lib.optionals (fw.interfaces ? privacy-vpn) (portsOf fw.interfaces.privacy-vpn);
 in
 {
   options.homelab.cilium.firewall = {
@@ -53,42 +53,39 @@ in
       enable = false;
       allowedUDPPorts = [ 68 ]; # DHCP, seems cilium host firewall blocks this
     };
-    services.k3s.manifests.cilium-hostfirewall-policy.enable = enable;
     assertions = lib.optionals enable [
       {
         assertion = config.homelab.cilium.cidr-groups.enable;
         message = "homelab.cilium.firewall opens the global ports to the local-lan CIDR group, which needs homelab.cilium.cidr-groups";
       }
       {
-        assertion = lib.all (name: name == "privacy-vpn" || toPorts fw.interfaces.${name} == [ ]) (
+        assertion = lib.all (name: name == "privacy-vpn" || portsOf fw.interfaces.${name} == [ ]) (
           lib.attrNames fw.interfaces
         );
         message = "homelab.cilium.firewall maps only networking.firewall.interfaces.privacy-vpn, not ${lib.concatStringsSep ", " (lib.remove "privacy-vpn" (lib.attrNames fw.interfaces))}";
       }
     ];
-    kubetree.resources.cilium-hostfirewall-policy.policy = {
-      apiVersion = "cilium.io/v2";
-      kind = "CiliumClusterwideNetworkPolicy";
-      metadata = {
-        name = "host-firewall";
+    homelab.kubernetes.submodules.instances.cilium-hostfirewall-policy = lib.mkIf enable {
+      submodule = "manifest";
+      config.kubernetes.resources.ciliumClusterwideNetworkPolicies.host-firewall = {
+        metadata.namespace = null;
+        spec.nodeSelector.matchLabels = { };
+        spec.ingress = [
+          { fromEntities = [ "cluster" ]; }
+          {
+            fromCIDRSet = [ { cidrGroupRef = "local-lan"; } ];
+            toPorts = self.lib.toPorts lan;
+          }
+        ]
+        ++ lib.optional (world != [ ]) { toPorts = self.lib.toPorts world; }
+        ++ [
+          {
+            icmps = [
+              { fields = lib.optional config.networking.firewall.allowPing { type = "EchoRequest"; }; }
+            ];
+          }
+        ];
       };
-      spec.nodeSelector.matchLabels = { };
-      spec.ingress = [
-        { fromEntities = [ "cluster" ]; }
-        {
-          fromCIDRSet = [ { cidrGroupRef = "local-lan"; } ];
-          toPortsFlattened = lan;
-        }
-      ]
-      ++ lib.optional (world != [ ]) { toPortsFlattened = world; }
-      ++ [
-        {
-          icmps = [
-            { fields = lib.optional config.networking.firewall.allowPing { type = "EchoRequest"; }; }
-          ];
-        }
-      ];
     };
-
   };
 }

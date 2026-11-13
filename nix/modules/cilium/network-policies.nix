@@ -1,4 +1,4 @@
-{ ... }:
+{ self, ... }:
 {
   lib,
   config,
@@ -13,234 +13,209 @@ in
     enable = lib.mkEnableOption "Cilium clusterwide network policies";
   };
   config = {
-    services.k3s.manifests.networkpolicies.enable = enable;
-    kubetree.resources.networkpolicies = {
-      deny-all = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "deny-all";
-        spec.endpointSelector = { };
-        spec.ingress = [ { fromEntities = [ ]; } ];
-        spec.egress = [ { toEntities = [ ]; } ];
-      };
-      pod-to-coredns = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-to-coredns";
-        spec.endpointSelector.matchLabels = { };
-        spec.egress = [
-          {
-            toEndpoints = [
+    homelab.kubernetes.submodules.instances.networkpolicies = lib.mkIf enable {
+      submodule = "manifest";
+      config.kubernetes.resources = {
+        ciliumClusterwideNetworkPolicies = {
+          deny-all = {
+            metadata.namespace = null;
+            spec.endpointSelector = { };
+            spec.ingress = [ { fromEntities = [ ]; } ];
+            spec.egress = [ { toEntities = [ ]; } ];
+          };
+          pod-to-coredns = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels = { };
+            spec.egress = [
               {
-                matchLabels = {
-                  "k8s:io.kubernetes.pod.namespace" = "kube-system";
-                  k8s-app = "kube-dns";
-                };
-              }
-            ];
-            toPortsFlattened = [
-              {
-                port = "53";
-                protocol = "UDP";
-              }
-              {
-                port = "53";
-                protocol = "TCP";
-              }
-            ];
-          }
-        ];
-      };
-      coredns-from-pod = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumNetworkPolicy";
-        metadata.namespace = "kube-system";
-        metadata.name = "coredns-from-pod";
-        spec.endpointSelector.matchLabels.k8s-app = "kube-dns";
-        spec.ingress = [
-          {
-            fromEntities = [
-              "host"
-              "remote-node"
-              "kube-apiserver"
-              "cluster"
-            ];
-            toPortsFlattened = [
-              {
-                port = "53";
-                protocol = "TCP";
-              }
-              {
-                port = "53";
-                protocol = "UDP";
-              }
-            ];
-          }
-        ];
-        spec.egress = [
-          {
-            toEntities = [ "world" ];
-            toPortsFlattened = [
-              {
-                port = "53";
-                protocol = "UDP";
-              }
-              {
-                port = "53";
-                protocol = "TCP";
-              }
-            ];
-          }
-          { toEntities = [ "kube-apiserver" ]; }
-        ];
-      };
-      pod-to-apiserver = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-to-apiserver";
-        spec.endpointSelector.matchLabels."cluster.local/apiserver-egress" = "allow";
-        spec.egress = [ { toEntities = [ "kube-apiserver" ]; } ];
-      };
-      pod-from-apiserver = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-from-apiserver";
-        spec.endpointSelector.matchLabels."cluster.local/apiserver-ingress" = "allow";
-        spec.ingress = [ { fromEntities = [ "kube-apiserver" ]; } ];
-      };
-      pod-to-internet = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-to-internet";
-        spec.endpointSelector.matchLabels."cluster.local/internet-egress" = "allow";
-        spec.egress = [ { toEntities = [ "world" ]; } ];
-      };
-      pod-from-internet = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-from-internet";
-        spec.endpointSelector.matchLabels."cluster.local/internet-ingress" = "allow";
-        spec.ingress = [ { fromEntities = [ "world" ]; } ];
-      };
-      pod-to-gateway = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-to-gateway";
-        spec.endpointSelector.matchLabels."cluster.local/gateway-egress" = "allow";
-        spec.egress = [ { toEntities = [ "ingress" ]; } ];
-      };
-      gateway-from-pod = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "gateway-from-pod";
-        spec.endpointSelector.matchExpressions = [
-          {
-            key = "reserved:ingress";
-            operator = "Exists";
-          }
-        ];
-        spec.ingress = [
-          {
-            fromEndpoints = [
-              {
-                matchExpressions = [
+                toEndpoints = [
                   {
-                    key = "k8s:io.kubernetes.pod.namespace";
-                    operator = "Exists";
+                    matchLabels = {
+                      "k8s:io.kubernetes.pod.namespace" = "kube-system";
+                      k8s-app = "kube-dns";
+                    };
+                  }
+                ];
+                toPorts = self.lib.toPorts [
+                  {
+                    port = 53;
+                    protocol = "UDP";
                   }
                   {
-                    key = "cluster.local/gateway-egress";
-                    operator = "In";
-                    values = [ "allow" ];
+                    port = 53;
+                    protocol = "TCP";
                   }
                 ];
               }
             ];
-          }
-        ];
-      };
-      gateway-to-pod = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "gateway-to-pod";
-        spec.endpointSelector.matchExpressions = [
-          {
-            key = "reserved:ingress";
-            operator = "Exists";
-          }
-        ];
-        spec.egress = [
-          {
-            toEndpoints = [
+          };
+          pod-to-apiserver = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels."cluster.local/apiserver-egress" = "allow";
+            spec.egress = [ { toEntities = [ "kube-apiserver" ]; } ];
+          };
+          pod-from-apiserver = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels."cluster.local/apiserver-ingress" = "allow";
+            spec.ingress = [ { fromEntities = [ "kube-apiserver" ]; } ];
+          };
+          pod-to-internet = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels."cluster.local/internet-egress" = "allow";
+            spec.egress = [ { toEntities = [ "world" ]; } ];
+          };
+          pod-from-internet = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels."cluster.local/internet-ingress" = "allow";
+            spec.ingress = [ { fromEntities = [ "world" ]; } ];
+          };
+          pod-to-gateway = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels."cluster.local/gateway-egress" = "allow";
+            spec.egress = [ { toEntities = [ "ingress" ]; } ];
+          };
+          gateway-from-pod = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchExpressions = [
               {
-                matchExpressions = [
+                key = "reserved:ingress";
+                operator = "Exists";
+              }
+            ];
+            spec.ingress = [
+              {
+                fromEndpoints = [
                   {
-                    key = "k8s:io.kubernetes.pod.namespace";
-                    operator = "Exists";
-                  }
-                  {
-                    key = "cluster.local/gateway-ingress";
-                    operator = "In";
-                    values = [ "allow" ];
+                    matchExpressions = [
+                      {
+                        key = "k8s:io.kubernetes.pod.namespace";
+                        operator = "Exists";
+                      }
+                      {
+                        key = "cluster.local/gateway-egress";
+                        operator = "In";
+                        values = [ "allow" ];
+                      }
+                    ];
                   }
                 ];
               }
             ];
-          }
-        ];
-      };
-      pod-from-gateway = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-from-gateway";
-        spec.endpointSelector.matchLabels."cluster.local/gateway-ingress" = "allow";
-        spec.ingress = [ { fromEntities = [ "ingress" ]; } ];
-      };
-      pod-to-cluster = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-to-cluster";
-        spec.endpointSelector.matchLabels."cluster.local/cluster-egress" = "allow";
-        spec.egress = [ { toEntities = [ "cluster" ]; } ];
-      };
-      cluster-from-pod = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "cluster-from-pod";
-        spec.endpointSelector = { };
-        spec.ingress = [
-          {
-            fromEndpoints = [
+          };
+          gateway-to-pod = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchExpressions = [
               {
-                matchExpressions = [
+                key = "reserved:ingress";
+                operator = "Exists";
+              }
+            ];
+            spec.egress = [
+              {
+                toEndpoints = [
                   {
-                    "key" = "k8s:io.kubernetes.pod.namespace";
-                    "operator" = "Exists";
-                  }
-                  {
-                    key = "cluster.local/cluster-egress";
-                    operator = "In";
-                    values = [ "allow" ];
+                    matchExpressions = [
+                      {
+                        key = "k8s:io.kubernetes.pod.namespace";
+                        operator = "Exists";
+                      }
+                      {
+                        key = "cluster.local/gateway-ingress";
+                        operator = "In";
+                        values = [ "allow" ];
+                      }
+                    ];
                   }
                 ];
               }
             ];
-          }
-        ];
-      };
-      pod-from-local-lan = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-from-local-lan";
-        spec.endpointSelector.matchLabels."cluster.local/local-lan-ingress" = "allow";
-        spec.ingress = [ { fromCIDRSet = [ { cidrGroupRef = "local-lan"; } ]; } ];
-      };
-      pod-to-local-lan = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "pod-to-local-lan";
-        spec.endpointSelector.matchLabels."cluster.local/local-lan-egress" = "allow";
-        spec.egress = [ { toCIDRSet = [ { cidrGroupRef = "local-lan"; } ]; } ];
+          };
+          pod-from-gateway = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels."cluster.local/gateway-ingress" = "allow";
+            spec.ingress = [ { fromEntities = [ "ingress" ]; } ];
+          };
+          pod-to-cluster = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels."cluster.local/cluster-egress" = "allow";
+            spec.egress = [ { toEntities = [ "cluster" ]; } ];
+          };
+          cluster-from-pod = {
+            metadata.namespace = null;
+            spec.endpointSelector = { };
+            spec.ingress = [
+              {
+                fromEndpoints = [
+                  {
+                    matchExpressions = [
+                      {
+                        "key" = "k8s:io.kubernetes.pod.namespace";
+                        "operator" = "Exists";
+                      }
+                      {
+                        key = "cluster.local/cluster-egress";
+                        operator = "In";
+                        values = [ "allow" ];
+                      }
+                    ];
+                  }
+                ];
+              }
+            ];
+          };
+          pod-from-local-lan = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels."cluster.local/local-lan-ingress" = "allow";
+            spec.ingress = [ { fromCIDRSet = [ { cidrGroupRef = "local-lan"; } ]; } ];
+          };
+          pod-to-local-lan = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels."cluster.local/local-lan-egress" = "allow";
+            spec.egress = [ { toCIDRSet = [ { cidrGroupRef = "local-lan"; } ]; } ];
+          };
+        };
+        ciliumNetworkPolicies = {
+          coredns-from-pod = {
+            metadata.namespace = "kube-system";
+            spec.endpointSelector.matchLabels.k8s-app = "kube-dns";
+            spec.ingress = [
+              {
+                fromEntities = [
+                  "host"
+                  "remote-node"
+                  "kube-apiserver"
+                  "cluster"
+                ];
+                toPorts = self.lib.toPorts [
+                  {
+                    port = 53;
+                    protocol = "TCP";
+                  }
+                  {
+                    port = 53;
+                    protocol = "UDP";
+                  }
+                ];
+              }
+            ];
+            spec.egress = [
+              {
+                toEntities = [ "world" ];
+                toPorts = self.lib.toPorts [
+                  {
+                    port = 53;
+                    protocol = "UDP";
+                  }
+                  {
+                    port = 53;
+                    protocol = "TCP";
+                  }
+                ];
+              }
+              { toEntities = [ "kube-apiserver" ]; }
+            ];
+          };
+        };
       };
     };
   };

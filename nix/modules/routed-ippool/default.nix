@@ -46,11 +46,10 @@ in
     };
   };
   config = lib.mkIf cfg.enable {
-    kubetree.resources.routed-lbippool = {
-      cilium-lbippool = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumLoadBalancerIPPool";
-        metadata.name = "routed";
+    homelab.kubernetes.submodules.instances.routed-lbippool = {
+      submodule = "manifest";
+      config.kubernetes.resources.ciliumLoadBalancerIPPools.routed = {
+        metadata.namespace = null;
         spec.blocks =
           (lib.optional ccfg.enableIPv4 (
             if cfg.lbIpBlock4.start != null then

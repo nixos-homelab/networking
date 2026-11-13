@@ -37,6 +37,13 @@ let
       (pkgs.lib.getExe upScript)
     ];
   };
+  labels = group: {
+    "app.kubernetes.io/name" = "client-vpn";
+    "app.kubernetes.io/component" = group;
+  };
+  # The pods of every group are named client-vpn, over the instance name the deployment submodule gives them; a
+  # Deployment selector is immutable
+  forcedLabels = group: labels group // { "app.kubernetes.io/name" = lib.mkForce "client-vpn"; };
   enabledPeerConfigs = peers: lib.filterAttrs (name: value: value.config.enable) peers;
   enabledGroupConfigs =
     lib.mapAttrs (name: value: builtins.head (builtins.attrValues (enabledPeerConfigs value.peers)))
@@ -227,195 +234,167 @@ in
       }
     ) enabledGroupConfigs);
     services.k3s.images = lib.optional cfg.enable image;
-    services.k3s.manifests.client-vpn.enable = cfg.enable;
-    kubetree.resources.client-vpn = {
-      namespace = {
-        apiVersion = "v1";
-        kind = "Namespace";
-        metadata.name = "client-vpn";
-      };
+    homelab.kubernetes.submodules.instances.client-vpn = lib.mkIf cfg.enable {
+      submodule = "manifest";
       config = {
-        apiVersion = "v1";
-        kind = "ConfigMap";
-        metadata = {
-          namespace = "client-vpn";
-          name = "client-vpn";
-          labels."app.kubernetes.io/name" = "client-vpn";
-        };
-        data = lib.mapAttrs' (group: spec: {
-          name = "${group}.conf";
-          value = ''
-            [Interface]
-            PrivateKey = ''${PRIVATE_KEY}
-            Address = ${
-              lib.join "," (
-                lib.filter (ip: ip != null) [
-                  spec.gatewayIPv4
-                  spec.gatewayIPv6
-                ]
-              )
-            }
-            ListenPort = ${builtins.toString listenPort}
-            PostUp   = iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-            PostUp   = ip6tables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-            PostDown = iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-            PostDown = ip6tables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+        kubernetes.resources = {
+          namespaces.client-vpn.metadata.namespace = null;
+          configMaps.client-vpn = {
+            metadata.labels."app.kubernetes.io/name" = "client-vpn";
+            data = lib.mapAttrs' (group: spec: {
+              name = "${group}.conf";
+              value = ''
+                [Interface]
+                PrivateKey = ''${PRIVATE_KEY}
+                Address = ${
+                  lib.join "," (
+                    lib.filter (ip: ip != null) [
+                      spec.gatewayIPv4
+                      spec.gatewayIPv6
+                    ]
+                  )
+                }
+                ListenPort = ${builtins.toString listenPort}
+                PostUp   = iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+                PostUp   = ip6tables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+                PostDown = iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+                PostDown = ip6tables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 
-            ${lib.join "\n" (
-              lib.mapAttrsToList (
-                name:
+                ${lib.join "\n" (
+                  lib.mapAttrsToList (
+                    name:
+                    {
+                      publicKey,
+                      ipv4,
+                      ipv6,
+                      ...
+                    }:
+                    ''
+                      [Peer]
+                      PublicKey = ${publicKey}
+                      AllowedIPs = ${
+                        lib.join "," (
+                          lib.filter (ip: ip != null) [
+                            ipv4
+                            ipv6
+                          ]
+                        )
+                      }
+                    ''
+                  ) (lib.filterAttrs (name: value: value.enable) spec.peers)
+                )}
+              '';
+            }) cfg.groups;
+          };
+          ciliumNetworkPolicies.world-to-client-vpn = {
+            metadata.labels."app.kubernetes.io/name" = "client-vpn";
+            spec = {
+              endpointSelector.matchLabels."app.kubernetes.io/name" = "client-vpn";
+              ingress = [
                 {
-                  publicKey,
-                  ipv4,
-                  ipv6,
-                  ...
-                }:
-                ''
-                  [Peer]
-                  PublicKey = ${publicKey}
-                  AllowedIPs = ${
-                    lib.join "," (
-                      lib.filter (ip: ip != null) [
-                        ipv4
-                        ipv6
-                      ]
-                    )
-                  }
-                ''
-              ) (lib.filterAttrs (name: value: value.enable) spec.peers)
-            )}
-          '';
-        }) cfg.groups;
-      };
-      wg-netpol = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumNetworkPolicy";
-        metadata = {
-          namespace = "client-vpn";
-          name = "world-to-client-vpn";
-          labels."app.kubernetes.io/name" = "client-vpn";
-        };
-        spec.endpointSelector.matchLabels."app.kubernetes.io/name" = "client-vpn";
-        spec.ingress = [
-          {
-            fromEntities = [ "world" ];
-            toPortsFlattened = [
-              {
-                port = listenPort;
-                protocol = "UDP";
-              }
-            ];
-          }
-        ];
-        spec.egress = [ { toEntities = [ "world" ]; } ];
-      };
-    }
-    // lib.mergeAttrsList (
-      lib.mapAttrsToList (group: spec: {
-        "${group}-deployment" = {
-          apiVersion = "cluster.local";
-          kind = "DeploymentMacro";
-          metadata = {
-            namespace = "client-vpn";
-            name = "${group}-vpn";
-            labels = {
-              "app.kubernetes.io/name" = "client-vpn";
-              "app.kubernetes.io/component" = group;
+                  fromEntities = [ "world" ];
+                  toPorts = self.lib.toPorts [
+                    {
+                      port = listenPort;
+                      protocol = "UDP";
+                    }
+                  ];
+                }
+              ];
+              egress = [ { toEntities = [ "world" ]; } ];
             };
           };
-          spec = {
-            allowEgress = spec.allowEgress;
-            podSpecMacro = {
-              initContainersByName.render-config = {
-                image = "${container-utils.buildArgs.name}:${container-utils.imageTag}";
-                imagePullPolicy = "Never";
-                args = [
-                  ''
-                    envsubst \''${PRIVATE_KEY} </config/${group}.conf >/config-tmp/clients.conf
-                    chmod 600 /config-tmp/clients.conf
-                  ''
-                ];
-                envByName.PRIVATE_KEY.valueFrom.secretKeyRef = {
-                  name = "client-vpn-private-keys";
-                  key = group;
+          services = lib.mapAttrs' (
+            group: spec:
+            lib.nameValuePair "${group}-vpn" {
+              metadata = {
+                labels = labels group // {
+                  "cluster.local/ippool" = "routed";
                 };
-                securityContext = {
-                  runAsUser = 0;
-                  runAsGroup = 0;
-                  allowPrivilegeEscalation = false;
-                  readOnlyRootFilesystem = true;
-                  capabilities.drop = [ "ALL" ];
-                };
-                volumeMountsByPath = {
-                  "/config" = "config";
-                  "/config-tmp" = "config-tmp";
-                };
+                annotations = {
+                  "external-dns.alpha.kubernetes.io/hostname" = "${group}-vpn.${ccfg.domain}";
+                }
+                // lib.optionalAttrs (spec.reservedIPs != [ ]) { "lbipam.cilium.io/ips" = lib.join "," spec.reservedIPs; };
               };
-              mainContainer = {
-                image = "${image.buildArgs.name}:${image.imageTag}";
-                imagePullPolicy = "Never";
-                # The kernel loads the wireguard module itself on `ip link add`, which only needs NET_ADMIN
-                addCapabilities = [ "NET_ADMIN" ];
-                securityContext = {
-                  runAsUser = 0;
-                  runAsGroup = 0;
-                };
-                portsByName.wg = {
-                  containerPort = listenPort;
+              spec = {
+                type = "LoadBalancer";
+                selector = labels group;
+                ipFamilies = lib.optional ccfg.enableIPv4 "IPv4" ++ lib.optional ccfg.enableIPv6 "IPv6";
+                ipFamilyPolicy = lib.mkIf (ccfg.enableIPv4 && ccfg.enableIPv6) "RequireDualStack";
+                ports.wg = {
+                  port = listenPort;
                   protocol = "UDP";
                 };
-                volumeMountsByPath = {
-                  "/etc/wireguard/clients.conf" = {
-                    name = "config-tmp";
-                    subPath = "clients.conf";
-                  };
+              };
+            }
+          ) cfg.groups;
+        };
+        submodules.instances = lib.mapAttrs' (
+          group: spec:
+          lib.nameValuePair "${group}-vpn" {
+            submodule = "deployment";
+            args = {
+              inherit (spec) allowEgress;
+              ports.wg = {
+                containerPort = listenPort;
+                protocol = "UDP";
+              };
+              # The world reaches it through world-to-client-vpn
+              policyPorts = [ ];
+              container = {
+                image = "${image.buildArgs.name}:${image.imageTag}";
+                imagePullPolicy = "Never";
+                securityContext = {
+                  runAsUser = 0;
+                  runAsGroup = 0;
+                  # The kernel loads the wireguard module itself on `ip link add`, which only needs NET_ADMIN
+                  capabilities.add = [ "NET_ADMIN" ];
+                };
+                volumeMounts."/etc/wireguard/clients.conf" = {
+                  name = "config-tmp";
+                  subPath = "clients.conf";
                 };
               };
-              volumesByName = {
-                config-tmp.emptyDir.medium = "Memory";
-                config.configMap.name = "client-vpn";
+            };
+            config.kubernetes.resources.deployments."${group}-vpn" = {
+              metadata.labels = forcedLabels group;
+              spec.selector.matchLabels = forcedLabels group;
+              spec.template.metadata.labels = forcedLabels group;
+              spec.template.spec = {
+                initContainers.render-config = {
+                  image = "${container-utils.buildArgs.name}:${container-utils.imageTag}";
+                  imagePullPolicy = "Never";
+                  args = [
+                    ''
+                      envsubst \''${PRIVATE_KEY} </config/${group}.conf >/config-tmp/clients.conf
+                      chmod 600 /config-tmp/clients.conf
+                    ''
+                  ];
+                  env.PRIVATE_KEY.valueFrom.secretKeyRef = {
+                    name = "client-vpn-private-keys";
+                    key = group;
+                  };
+                  securityContext = {
+                    runAsUser = 0;
+                    runAsGroup = 0;
+                    allowPrivilegeEscalation = false;
+                    readOnlyRootFilesystem = true;
+                    capabilities.drop = [ "ALL" ];
+                  };
+                  volumeMounts = {
+                    "/config".name = "config";
+                    "/config-tmp".name = "config-tmp";
+                  };
+                };
+                volumes = {
+                  config-tmp.emptyDir.medium = "Memory";
+                  config.configMap.name = "client-vpn";
+                };
               };
             };
-          };
-        };
-        "${group}-service" = {
-          apiVersion = "v1";
-          kind = "Service";
-          metadata = {
-            namespace = "client-vpn";
-            name = "${group}-vpn";
-            labels = {
-              "app.kubernetes.io/name" = "client-vpn";
-              "app.kubernetes.io/component" = group;
-              "cluster.local/ippool" = "routed";
-            };
-            annotations = {
-              "external-dns.alpha.kubernetes.io/hostname" = "${group}-vpn.${ccfg.domain}";
-            }
-            // lib.optionalAttrs (builtins.length spec.reservedIPs > 0) ({
-              "lbipam.cilium.io/ips" = lib.join "," spec.reservedIPs;
-            });
-          };
-          spec = {
-            type = "LoadBalancer";
-            selector = {
-              "app.kubernetes.io/name" = "client-vpn";
-              "app.kubernetes.io/component" = group;
-            };
-            ipFamilies = (lib.optional ccfg.enableIPv4 "IPv4") ++ (lib.optional ccfg.enableIPv6 "IPv6");
-            ports = [
-              {
-                name = "wg";
-                port = listenPort;
-                protocol = "UDP";
-              }
-            ];
           }
-          // (lib.optionalAttrs (ccfg.enableIPv4 && ccfg.enableIPv6) {
-            ipFamilyPolicy = "RequireDualStack";
-          });
-        };
-      }) cfg.groups
-    );
+        ) cfg.groups;
+      };
+    };
   };
 }

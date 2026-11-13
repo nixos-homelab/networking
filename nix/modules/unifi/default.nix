@@ -104,131 +104,118 @@ in
         }
       ];
     };
-    kubetree.resources.unifi = {
-      certificate = {
-        apiVersion = "cert-manager.io/v1";
-        kind = "Certificate";
-        metadata = {
-          namespace = "unifi";
-          name = "unifi";
-          labels."app.kubernetes.io/name" = "unifi";
+    homelab.kubernetes.submodules.instances.unifi = {
+      submodule = "workload";
+      args = {
+        allowIngress = [ "local-lan" ];
+        allowEgress = [
+          "local-lan"
+          "internet"
+        ];
+        dataPath = "/var/lib/unifi/data";
+        ports = {
+          web = 8443;
+          inform = 8080;
+          portalredir = 8880;
+          portalredir-tls = 8843;
+          speed-test = 6789;
+          stun = {
+            containerPort = 3478;
+            protocol = "UDP";
+          };
+          discovery = {
+            containerPort = 10001;
+            protocol = "UDP";
+          };
         };
-        spec = {
-          secretName = "unifi-tls";
-          commonName = "unifi.${ccfg.domain}";
-          dnsNames = [ "unifi.${ccfg.domain}" ];
-          issuerRef = {
-            group = "cert-manager.io";
-            kind = "ClusterIssuer";
-            name = config.kubetree.workload-macros.acmeProvider;
+        # Pods reach the web UI only; the devices on the LAN the rest
+        policyPorts = [ "web" ];
+        container = {
+          image = "${image.imageName}:${image.imageTag}";
+          imagePullPolicy = "Never";
+          workingDir = "/var/lib/unifi";
+          volumeMounts = {
+            "/var/lib/unifi/logs" = {
+              name = "data";
+              subPath = "logs";
+            };
+            "/var/lib/unifi/run" = {
+              name = "tmp";
+              subPath = "run";
+            };
+            "/tmp" = {
+              name = "tmp";
+              subPath = "tmp";
+            };
           };
         };
       };
-      macro = {
-        apiVersion = "cluster.local";
-        kind = "WorkloadMacro";
-        metadata.name = "unifi";
-        spec = {
-          allowIngress = [
-            "local-lan"
-          ];
-          allowEgress = [
-            "local-lan"
-            "internet"
-          ];
-          dataPath = "/var/lib/unifi/data";
-          service = {
-            metadata = {
-              labels."cluster.local/ippool" = "routed";
-              annotations = {
-                "external-dns.alpha.kubernetes.io/hostname" = "unifi.${ccfg.domain}";
-              }
-              // lib.optionalAttrs (builtins.length cfg.reservedIPs > 0) ({
-                "lbipam.cilium.io/ips" = lib.join "," cfg.reservedIPs;
-              });
+      config.kubernetes.resources = {
+        certificates.unifi = {
+          metadata.labels."app.kubernetes.io/name" = "unifi";
+          spec = {
+            secretName = "unifi-tls";
+            commonName = "unifi.${ccfg.domain}";
+            dnsNames = [ "unifi.${ccfg.domain}" ];
+            issuerRef = {
+              group = "cert-manager.io";
+              kind = "ClusterIssuer";
+              name = config.kubetree.workload-macros.acmeProvider;
             };
-            spec = {
-              type = "LoadBalancer";
-              ipFamilies = (lib.optional ccfg.enableIPv4 "IPv4") ++ (lib.optional ccfg.enableIPv6 "IPv6");
-              portsByName.web = {
-                port = 443;
-                targetPort = 8443;
-              };
-            }
-            // (lib.optionalAttrs (ccfg.enableIPv4 && ccfg.enableIPv6) {
-              ipFamilyPolicy = "RequireDualStack";
-            });
           };
-          netpol.spec.ports = [ 8443 ];
-          podSpecMacro = {
-            initContainersByName.ln-keystore = {
-              image = "${image.imageName}:${image.imageTag}";
-              imagePullPolicy = "Never";
-              command = [
-                "/bin/bash"
-                "-c"
-              ];
-              args = [
-                ''
-                  mkdir -p /var/lib/unifi/data/db
-                  unifi import_key_cert /tls/tls.key /tls/tls.crt
-                ''
-              ];
-              securityContext.readOnlyRootFilesystem = true;
-              volumeMountsByPath = {
-                "/var/lib/unifi/data" = "data";
-                "/tls" = "tls";
-                "/var/lib/unifi/logs" = {
-                  name = "data";
-                  subPath = "logs";
-                };
-                "/var/lib/unifi/run" = {
-                  name = "tmp";
-                  subPath = "run";
-                };
-                "/tmp" = {
-                  name = "tmp";
-                  subPath = "tmp";
-                };
+        };
+        deployments.unifi.spec.template.spec = {
+          initContainers.ln-keystore = {
+            image = "${image.imageName}:${image.imageTag}";
+            imagePullPolicy = "Never";
+            command = [
+              "/bin/bash"
+              "-c"
+            ];
+            args = [
+              ''
+                mkdir -p /var/lib/unifi/data/db
+                unifi import_key_cert /tls/tls.key /tls/tls.crt
+              ''
+            ];
+            securityContext.readOnlyRootFilesystem = true;
+            volumeMounts = {
+              "/var/lib/unifi/data".name = "data";
+              "/tls".name = "tls";
+              "/var/lib/unifi/logs" = {
+                name = "data";
+                subPath = "logs";
+              };
+              "/var/lib/unifi/run" = {
+                name = "tmp";
+                subPath = "run";
+              };
+              "/tmp" = {
+                name = "tmp";
+                subPath = "tmp";
               };
             };
-            mainContainer = {
-              image = "${image.imageName}:${image.imageTag}";
-              imagePullPolicy = "Never";
-              workingDir = "/var/lib/unifi";
-              portsByName = {
-                web = 8443;
-                inform = 8080;
-                portalredir = 8880;
-                portalredir-tls = 8843;
-                speed-test = 6789;
-                stun = {
-                  containerPort = 3478;
-                  protocol = "UDP";
-                };
-                discovery = {
-                  containerPort = 10001;
-                  protocol = "UDP";
-                };
-              };
-              volumeMountsByPath = {
-                "/var/lib/unifi/logs" = {
-                  name = "data";
-                  subPath = "logs";
-                };
-                "/var/lib/unifi/run" = {
-                  name = "tmp";
-                  subPath = "run";
-                };
-                "/tmp" = {
-                  name = "tmp";
-                  subPath = "tmp";
-                };
-              };
-            };
-            volumesByName = {
-              tmp.emptyDir = { };
-              tls.secret.secretName = "unifi-tls";
+          };
+          volumes = {
+            tmp.emptyDir = { };
+            tls.secret.secretName = "unifi-tls";
+          };
+        };
+        services.unifi = {
+          metadata = {
+            labels."cluster.local/ippool" = "routed";
+            annotations = {
+              "external-dns.alpha.kubernetes.io/hostname" = "unifi.${ccfg.domain}";
+            }
+            // lib.optionalAttrs (cfg.reservedIPs != [ ]) { "lbipam.cilium.io/ips" = lib.join "," cfg.reservedIPs; };
+          };
+          spec = {
+            type = "LoadBalancer";
+            ipFamilies = lib.optional ccfg.enableIPv4 "IPv4" ++ lib.optional ccfg.enableIPv6 "IPv6";
+            ipFamilyPolicy = lib.mkIf (ccfg.enableIPv4 && ccfg.enableIPv6) "RequireDualStack";
+            ports.web = {
+              port = lib.mkForce 443;
+              targetPort = 8443;
             };
           };
         };

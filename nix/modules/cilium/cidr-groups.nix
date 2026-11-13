@@ -24,29 +24,25 @@ in
     };
   };
   config = {
-    services.k3s.manifests.cidrgroups.enable = enable;
-    kubetree.resources.cidrgroups = {
-      pods = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumCIDRGroup";
-        metadata.name = "pods";
-        spec.externalCIDRs =
-          (lib.optional ccfg.enableIPv4 ccfg.podCidr4) ++ (lib.optional ccfg.enableIPv6 ccfg.podCidr6);
-      };
-      services = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumCIDRGroup";
-        metadata.name = "services";
-        spec.externalCIDRs =
-          (lib.optional ccfg.enableIPv4 ccfg.svcCidr4) ++ (lib.optional ccfg.enableIPv6 ccfg.svcCidr6);
-      };
-      local-lan = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumCIDRGroup";
-        metadata.name = "local-lan";
-        spec.externalCIDRs =
-          lib.optional (cfg.localLANCIDR4 != null) cfg.localLANCIDR4
-          ++ lib.optional (cfg.localLANCIDR6 != null) cfg.localLANCIDR6;
+    homelab.kubernetes.submodules.instances.cidrgroups = lib.mkIf enable {
+      submodule = "manifest";
+      config.kubernetes.resources.ciliumCIDRGroups = {
+        pods = {
+          metadata.namespace = null;
+          spec.externalCIDRs =
+            lib.optional ccfg.enableIPv4 ccfg.podCidr4 ++ lib.optional ccfg.enableIPv6 ccfg.podCidr6;
+        };
+        services = {
+          metadata.namespace = null;
+          spec.externalCIDRs =
+            lib.optional ccfg.enableIPv4 ccfg.svcCidr4 ++ lib.optional ccfg.enableIPv6 ccfg.svcCidr6;
+        };
+        local-lan = {
+          metadata.namespace = null;
+          spec.externalCIDRs =
+            lib.optional (cfg.localLANCIDR4 != null) cfg.localLANCIDR4
+            ++ lib.optional (cfg.localLANCIDR6 != null) cfg.localLANCIDR6;
+        };
       };
     };
   };

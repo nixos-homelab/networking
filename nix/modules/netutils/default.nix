@@ -14,55 +14,46 @@ in
     enable = lib.mkEnableOption "the netutils debugging container";
   };
   config = {
-    services.k3s.manifests.netutils.enable = config.homelab.netutils.enable;
-    kubetree.resources.netutils = {
-      netutils-to-all = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumNetworkPolicy";
-        metadata = {
-          namespace = "default";
-          name = "netutils-to-all";
-        };
-        spec.endpointSelector.matchLabels."app.kubernetes.io/name" = "netutils";
-        spec.ingress = [ { fromEntities = [ "all" ]; } ];
-        spec.egress = [ { toEntities = [ "all" ]; } ];
-      };
-      all-from-netutils = {
-        apiVersion = "cilium.io/v2";
-        kind = "CiliumClusterwideNetworkPolicy";
-        metadata.name = "all-from-netutils";
-        spec.endpointSelector.matchLabels = { };
-        spec.ingress = [
-          {
-            fromEndpoints = [
+    homelab.kubernetes.submodules.instances.netutils = lib.mkIf config.homelab.netutils.enable {
+      submodule = "manifest";
+      config = {
+        kubernetes.namespace = "default";
+        kubernetes.resources = {
+          ciliumNetworkPolicies.netutils-to-all.spec = {
+            endpointSelector.matchLabels."app.kubernetes.io/name" = "netutils";
+            ingress = [ { fromEntities = [ "all" ]; } ];
+            egress = [ { toEntities = [ "all" ]; } ];
+          };
+          ciliumClusterwideNetworkPolicies.all-from-netutils = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels = { };
+            spec.ingress = [
               {
-                matchLabels = {
-                  "k8s:io.kubernetes.pod.namespace" = "default";
-                  "app.kubernetes.io/name" = "netutils";
-                };
+                fromEndpoints = [
+                  {
+                    matchLabels = {
+                      "k8s:io.kubernetes.pod.namespace" = "default";
+                      "app.kubernetes.io/name" = "netutils";
+                    };
+                  }
+                ];
               }
             ];
-          }
-        ];
-      };
-      deployment = {
-        apiVersion = "apps/v1";
-        kind = "Deployment";
-        metadata = {
-          namespace = "default";
-          name = "netutils";
-          labels."app.kubernetes.io/name" = "netutils";
-        };
-        spec = {
-          selector.matchLabels."app.kubernetes.io/name" = "netutils";
-          template.metadata.labels."app.kubernetes.io/name" = "netutils";
-          template.spec.containersByName.netutils = {
-            image = "${container-utils.buildArgs.name}:${container-utils.imageTag}";
-            imagePullPolicy = "Never";
-            command = [
-              "iperf2"
-              "-s"
-            ];
+          };
+          deployments.netutils = {
+            metadata.labels."app.kubernetes.io/name" = "netutils";
+            spec = {
+              selector.matchLabels."app.kubernetes.io/name" = "netutils";
+              template.metadata.labels."app.kubernetes.io/name" = "netutils";
+              template.spec.containers.netutils = {
+                image = "${container-utils.buildArgs.name}:${container-utils.imageTag}";
+                imagePullPolicy = "Never";
+                command = [
+                  "iperf2"
+                  "-s"
+                ];
+              };
+            };
           };
         };
       };

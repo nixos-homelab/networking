@@ -156,35 +156,37 @@ in
       "traefik"
       "servicelb"
     ];
-    homelab.kubernetes.submodules.defaults = [
-      {
-        name = "workload";
-        default = ./workload-policies.nix;
-      }
-    ];
+    homelab.kubernetes = {
+      submodules.defaults = [
+        {
+          features = [ "pod-spec" ];
+          default = import ./pod-policies.nix self.lib.toPorts;
+        }
+      ];
+      submodules.instances.cilium-lbippool = {
+        submodule = "manifest";
+        config.kubernetes.resources.ciliumLoadBalancerIPPools.main = {
+          metadata.namespace = null;
+          spec.blocks =
+            lib.optional ccfg.enableIPv4 (
+              if cfg.lbIpBlock4.start != null then
+                { inherit (cfg.lbIpBlock4) start stop; }
+              else
+                { inherit (cfg.lbIpBlock4) cidr; }
+            )
+            ++ lib.optional ccfg.enableIPv6 (
+              if cfg.lbIpBlock6.start != null then
+                { inherit (cfg.lbIpBlock6) start stop; }
+              else
+                { inherit (cfg.lbIpBlock6) cidr; }
+            );
+        };
+      };
+    };
     services.k3s.images = cilium.images;
     services.k3s.manifests = {
       gatewayapi.source = gatewayAPI.src;
       cilium-helm.source = cilium.manifest;
-    };
-
-    kubetree.resources.cilium-lbippool.pool = {
-      apiVersion = "cilium.io/v2";
-      kind = "CiliumLoadBalancerIPPool";
-      metadata.name = "main";
-      spec.blocks =
-        (lib.optional ccfg.enableIPv4 (
-          if cfg.lbIpBlock4.start != null then
-            { inherit (cfg.lbIpBlock4) start stop; }
-          else
-            { inherit (cfg.lbIpBlock4) cidr; }
-        ))
-        ++ (lib.optional ccfg.enableIPv6 (
-          if cfg.lbIpBlock6.start != null then
-            { inherit (cfg.lbIpBlock6) start stop; }
-          else
-            { inherit (cfg.lbIpBlock6) cidr; }
-        ));
     };
   };
 }

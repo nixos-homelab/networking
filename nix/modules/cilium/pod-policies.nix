@@ -1,5 +1,6 @@
-# The Cilium policies of a workload with ports, added to every `workload` instance through `submodules.defaults`:
-# pods labeled `cluster.local/<workload>-egress: allow` may reach the workload on its ports, from any namespace
+# The Cilium policies of a pod with `policyPorts`, added to every submodule that runs pods through
+# `submodules.defaults`: pods labeled `cluster.local/<name>-egress: allow` may reach those ports, from any namespace
+toPorts:
 {
   lib,
   name,
@@ -11,16 +12,16 @@ let
   inherit (config.kubernetes) namespace;
   labels."app.kubernetes.io/name" = name;
   egressLabel = "cluster.local/${name}-egress";
-  toPorts = [
-    {
-      ports = lib.mapAttrsToList (
-        _: p: { port = toString p.containerPort; } // lib.optionalAttrs (p.protocol != null) { inherit (p) protocol; }
-      ) args.ports;
-    }
-  ];
+  ports = map (
+    n:
+    let
+      p = args.ports.${n};
+    in
+    { port = p.containerPort; } // lib.optionalAttrs (p.protocol != null) { inherit (p) protocol; }
+  ) args.policyPorts;
 in
 {
-  kubernetes.resources = lib.mkIf (args.ports != { }) {
+  kubernetes.resources = lib.mkIf (ports != [ ]) {
     ciliumClusterwideNetworkPolicies."pod-to-${name}" = {
       metadata = {
         inherit labels;
@@ -31,7 +32,7 @@ in
         egress = [
           {
             toEndpoints = [ { matchLabels = labels // { "k8s:io.kubernetes.pod.namespace" = namespace; }; } ];
-            inherit toPorts;
+            toPorts = toPorts ports;
           }
         ];
       };
@@ -57,7 +58,7 @@ in
                 ];
               }
             ];
-            inherit toPorts;
+            toPorts = toPorts ports;
           }
         ];
       };

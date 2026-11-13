@@ -60,6 +60,7 @@
         flake = {
           lib = {
             importsApply = map (path: importApply path { inherit self inputs; });
+            toPorts = import ./nix/lib/to-ports.nix;
           };
           nixosModules = {
             cilium = importApply ./nix/modules/cilium { inherit self inputs; };

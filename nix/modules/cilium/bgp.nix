@@ -9,6 +9,22 @@ let
   ccfg = config.homelab.cluster;
   cfg = config.homelab.cilium.bgp;
   enable = config.homelab.cilium.enable && cfg.enable;
+  peer = afi: {
+    metadata.namespace = null;
+    spec = {
+      timers.holdTimeSeconds = 9;
+      timers.keepAliveTimeSeconds = 3;
+      gracefulRestart.enabled = true;
+      gracefulRestart.restartTimeSeconds = 15;
+      families = [
+        {
+          inherit afi;
+          safi = "unicast";
+          advertisements.matchLabels.advertise = "bgp";
+        }
+      ];
+    };
+  };
 in
 {
   options.homelab.cilium.bgp = {
@@ -35,54 +51,15 @@ in
   config = {
     networking.tempAddresses = lib.mkIf enable "disabled";
     networking.firewall.allowedTCPPorts = pkgs.lib.optional enable 179;
-    services.k3s.manifests.cilium-bgpconfig.enable = enable;
-    kubetree.resources.cilium-bgpconfig =
-      (lib.optionalAttrs ccfg.enableIPv4 {
-        peer4 = {
-          apiVersion = "cilium.io/v2";
-          kind = "CiliumBGPPeerConfig";
-          metadata.name = "cilium-peer4";
-          spec = {
-            timers.holdTimeSeconds = 9;
-            timers.keepAliveTimeSeconds = 3;
-            gracefulRestart.enabled = true;
-            gracefulRestart.restartTimeSeconds = 15;
-            families = [
-              {
-                afi = "ipv4";
-                safi = "unicast";
-                advertisements.matchLabels.advertise = "bgp";
-              }
-            ];
-          };
-        };
-      })
-      // (lib.optionalAttrs ccfg.enableIPv6 {
-        peer6 = {
-          apiVersion = "cilium.io/v2";
-          kind = "CiliumBGPPeerConfig";
-          metadata.name = "cilium-peer6";
-          spec = {
-            timers.holdTimeSeconds = 9;
-            timers.keepAliveTimeSeconds = 3;
-            gracefulRestart.enabled = true;
-            gracefulRestart.restartTimeSeconds = 15;
-            families = [
-              {
-                afi = "ipv6";
-                safi = "unicast";
-                advertisements.matchLabels.advertise = "bgp";
-              }
-            ];
-          };
-        };
-      })
-      // {
-        router = {
-          apiVersion = "cilium.io/v2";
-          kind = "CiliumBGPClusterConfig";
-          metadata.name = "router";
-          spec.bgpInstances = lib.optionals enable [
+    homelab.kubernetes.submodules.instances.cilium-bgpconfig = lib.mkIf enable {
+      submodule = "manifest";
+      config.kubernetes.resources = {
+        ciliumBGPPeerConfigs =
+          lib.optionalAttrs ccfg.enableIPv4 { cilium-peer4 = peer "ipv4"; }
+          // lib.optionalAttrs ccfg.enableIPv6 { cilium-peer6 = peer "ipv6"; };
+        ciliumBGPClusterConfigs.router = {
+          metadata.namespace = null;
+          spec.bgpInstances = [
             {
               name = "router";
               localASN = cfg.clusterASN;
@@ -102,11 +79,11 @@ in
             }
           ];
         };
-        advertisements = {
-          apiVersion = "cilium.io/v2";
-          kind = "CiliumBGPAdvertisement";
-          metadata.name = "bgp-advertisements";
-          metadata.labels.advertise = "bgp";
+        ciliumBGPAdvertisements.bgp-advertisements = {
+          metadata = {
+            namespace = null;
+            labels.advertise = "bgp";
+          };
           spec.advertisements = [
             {
               advertisementType = "PodCIDR";
@@ -131,5 +108,6 @@ in
           ];
         };
       };
+    };
   };
 }
