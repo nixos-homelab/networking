@@ -6,7 +6,6 @@
   ...
 }:
 let
-  ccfg = config.homelab.cluster;
   cfg = config.homelab.homepage.integrations.unifi;
   hllib = inputs.homelab-shared.lib;
 in
@@ -52,7 +51,7 @@ in
       services.Networking.unifi = {
         enable = lib.mkDefault true;
         icon = "unifi.png";
-        href = "https://unifi.${ccfg.domain}";
+        href = "https://unifi.${config.homelab.workloads.domain}";
         description = "Unifi Controller";
       };
       envFrom = [ { secretRef.name = "unifi-credentials"; } ];

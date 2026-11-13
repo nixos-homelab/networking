@@ -150,7 +150,7 @@ in
             };
             env = values {
               EXTERNAL_DNS_METRICS_ADDRESS = ":7980";
-              EXTERNAL_DNS_FQDN_TEMPLATE = "{{ .Name }}.${ccfg.domain}";
+              EXTERNAL_DNS_FQDN_TEMPLATE = "{{ .Name }}.${config.homelab.workloads.domain}";
               EXTERNAL_DNS_SOURCE = "node";
               EXTERNAL_DNS_EXPOSE_INTERNAL_IPV6 = "1";
               EXTERNAL_DNS_EVENTS_EMIT = ''
@@ -187,7 +187,7 @@ in
               capabilities.drop = [ "ALL" ];
             };
             env = values {
-              LIBDNS_PROVIDER_ZONES = config.homelab.cluster.domain;
+              LIBDNS_PROVIDER_ZONES = config.homelab.workloads.domain;
               LIBDNS_WEBHOOK_LISTEN = ":8888";
             };
             ports.api.containerPort = 8888;

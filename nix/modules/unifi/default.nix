@@ -155,12 +155,12 @@ in
           metadata.labels."app.kubernetes.io/name" = "unifi";
           spec = {
             secretName = "unifi-tls";
-            commonName = "unifi.${ccfg.domain}";
-            dnsNames = [ "unifi.${ccfg.domain}" ];
+            commonName = "unifi.${config.homelab.workloads.domain}";
+            dnsNames = [ "unifi.${config.homelab.workloads.domain}" ];
             issuerRef = {
               group = "cert-manager.io";
               kind = "ClusterIssuer";
-              name = config.kubetree.workload-macros.acmeProvider;
+              name = config.homelab.workloads.acmeProvider;
             };
           };
         };
@@ -205,7 +205,7 @@ in
           metadata = {
             labels."cluster.local/ippool" = "routed";
             annotations = {
-              "external-dns.alpha.kubernetes.io/hostname" = "unifi.${ccfg.domain}";
+              "external-dns.alpha.kubernetes.io/hostname" = "unifi.${config.homelab.workloads.domain}";
             }
             // lib.optionalAttrs (cfg.reservedIPs != [ ]) { "lbipam.cilium.io/ips" = lib.join "," cfg.reservedIPs; };
           };

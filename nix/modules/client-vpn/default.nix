@@ -168,7 +168,7 @@ in
               (lib.optional ccfg.enableIPv4 config.homelab.cilium.lbIpBlock4.cidr)
               ++ (lib.optional ccfg.enableIPv6 config.homelab.cilium.lbIpBlock6.cidr)
             );
-            endpoint = lib.mkDefault "${name}-vpn.${ccfg.domain}:51820";
+            endpoint = lib.mkDefault "${name}-vpn.${config.homelab.workloads.domain}:51820";
             publicKey = lib.mkDefault cfg.groups.${name}.gatewayPublicKey;
           }
         ];
@@ -312,7 +312,7 @@ in
                   "cluster.local/ippool" = "routed";
                 };
                 annotations = {
-                  "external-dns.alpha.kubernetes.io/hostname" = "${group}-vpn.${ccfg.domain}";
+                  "external-dns.alpha.kubernetes.io/hostname" = "${group}-vpn.${config.homelab.workloads.domain}";
                 }
                 // lib.optionalAttrs (spec.reservedIPs != [ ]) { "lbipam.cilium.io/ips" = lib.join "," spec.reservedIPs; };
               };

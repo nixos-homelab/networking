@@ -29,7 +29,7 @@ kubetree.resources.node-exporter.netpol = {
 ## kubenix pods
 
 The same pair of policies for every instance of a
-[submodule that runs pods](https://github.com/nixos-homelab/shared/blob/main/nix/modules/cluster/kubenix/README.md)
+[submodule that runs pods](https://github.com/nixos-homelab/shared/blob/main/nix/modules/workloads/README.md)
 (`workload`, `deployment`, `daemonset`, `job`, `cronjob`), on its
 `policyPorts`, all of its `ports` unless set; added through kubenix
 `submodules.defaults` when `homelab.cilium.enable` is set. They go in the
