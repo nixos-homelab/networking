@@ -339,7 +339,8 @@ in
                 containerPort = listenPort;
                 protocol = "UDP";
               };
-              # The world reaches it through world-to-client-vpn
+              # The world reaches it through world-to-client-vpn. The policies of policyPorts would select the pods by the
+              # instance name, which forcedLabels replaces
               policyPorts = [ ];
               container = {
                 image = "${image.buildArgs.name}:${image.imageTag}";

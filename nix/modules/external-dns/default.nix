@@ -92,8 +92,6 @@ in
           "internet"
         ];
         ports.metrics = 7979;
-        # Nothing in the cluster reaches it
-        policyPorts = [ ];
         container = {
           image = "${externalDNSImage.buildArgs.name}:${externalDNSImage.imageTag}";
           securityContext = {
