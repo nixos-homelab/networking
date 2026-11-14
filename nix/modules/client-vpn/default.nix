@@ -44,12 +44,12 @@ let
   # The pods of every group are named client-vpn, over the instance name the deployment submodule gives them; a
   # Deployment selector is immutable
   forcedLabels = group: labels group // { "app.kubernetes.io/name" = lib.mkForce "client-vpn"; };
-  enabledPeerConfigs = peers: lib.filterAttrs (name: value: value.config.enable) peers;
+  enabledPeerConfigs = peers: lib.filterAttrs (_name: value: value.config.enable) peers;
   enabledGroupConfigs =
-    lib.mapAttrs (name: value: builtins.head (builtins.attrValues (enabledPeerConfigs value.peers)))
+    lib.mapAttrs (_name: value: builtins.head (builtins.attrValues (enabledPeerConfigs value.peers)))
       (
         lib.filterAttrs (
-          name: value: builtins.length (builtins.attrNames (enabledPeerConfigs value.peers)) == 1
+          _name: value: builtins.length (builtins.attrNames (enabledPeerConfigs value.peers)) == 1
         ) cfg.groups
       );
 in
@@ -182,7 +182,7 @@ in
       builtins.attrNames enabledGroupConfigs
     );
     setup-secrets.sources =
-      (lib.mapAttrs' (group: spec: {
+      (lib.mapAttrs' (group: _spec: {
         name = "CLIENT_VPN_${lib.toUpper group}";
         value = {
           enable = cfg.enable;
@@ -193,7 +193,7 @@ in
           '';
         };
       }) cfg.groups)
-      // (lib.mapAttrs' (name: value: {
+      // (lib.mapAttrs' (name: _value: {
         name = "HOMELAB_${lib.toUpper name}_VPN_PRIVATE_KEY";
         value = {
           description = "Private Key for homelab ${name} VPN connection";
@@ -214,7 +214,7 @@ in
       }
     ]
     ++ (lib.mapAttrsToList (
-      name: value:
+      name: _value:
       let
         envvar = "HOMELAB_${lib.toUpper name}_VPN_PRIVATE_KEY";
       in
@@ -262,7 +262,7 @@ in
 
                 ${lib.join "\n" (
                   lib.mapAttrsToList (
-                    name:
+                    _name:
                     {
                       publicKey,
                       ipv4,
@@ -281,7 +281,7 @@ in
                         )
                       }
                     ''
-                  ) (lib.filterAttrs (name: value: value.enable) spec.peers)
+                  ) (lib.filterAttrs (_name: value: value.enable) spec.peers)
                 )}
               '';
             }) cfg.groups;
