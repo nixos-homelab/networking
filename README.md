@@ -2,14 +2,14 @@
 
 The networking base that ties the rest of the homelab together. Every
 workload across every `nixos-homelab-*` repo declares `allowIngress`/
-`allowEgress` on its [workload
-macros](https://nixos-homelab.github.io/shared/workload-macros/)
+`allowEgress` on its [kubenix
+workload](https://nixos-homelab.github.io/shared/kubenix/)
 -- this repo's `cilium` module is what actually enforces them as network
 policy; without it they're just labels. It also provides the CNI itself,
 inbound and outbound VPNs, routable IP pools, and DNS management.
 
-See the [Cilium network policies docs](https://nixos-homelab.github.io/networking/cilium/) for the custom
-resource kinds this repo's `kubetree.cilium` module adds, and
+See the [Cilium network policies docs](https://nixos-homelab.github.io/networking/cilium/) for the
+policies this repo's `cilium` module gives kubenix pods and `lib.toPorts`, and
 [the options reference](https://nixos-homelab.github.io/networking/options/) for the full list of module options.
 
 ## Setup
@@ -39,7 +39,7 @@ resource kinds this repo's `kubetree.cilium` module adds, and
 
 - **cilium**: the [Cilium](https://cilium.io) CNI, plus the LoadBalancer
   IP pool it hands out from -- see [the Cilium network policies docs](https://nixos-homelab.github.io/networking/cilium/) for
-  the `NetpolMacro`/`toPortsFlattened` resource kinds it also adds.
+  the policies it gives the pods of kubenix submodules.
 - **routed-ippool**: a routable IPv4 pool for LoadBalancer services,
   routed to the cluster from the LAN.
 - **client-vpn**: the inbound WireGuard gateway -- named access groups,

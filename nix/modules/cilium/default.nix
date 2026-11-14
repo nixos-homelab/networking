@@ -138,7 +138,6 @@ in
       ./bgp.nix
       ./cidr-groups.nix
       ./firewall.nix
-      ./kubetree.nix
       ./network-policies.nix
     ]
     ++ [ self.nixosModules.privacy-vpn ];
