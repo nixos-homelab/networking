@@ -47,7 +47,7 @@ let
 
           tls.secretsNamespace.name = "cilium";
           operator.replicas = 1;
-          kubeConfigPath = "/etc/rancher/k3s/k3s.yaml";
+          kubeConfigPath = ccfg.kubeconfig;
           k8sServiceHost = "127.0.0.1";
           k8sServicePort = "6443";
 
@@ -149,13 +149,19 @@ in
     assertions = [
       {
         assertion = !config.homelab.privacy-vpn.enable || cfg.masquerade.enable;
-        message = "In order to use the privacy VPN, masquerading must be enabled (homelab.cluster.masquerade.enable)";
+        message = "In order to use the privacy VPN, masquerading must be enabled (homelab.cilium.masquerade.enable)";
       }
     ];
-    services.k3s.disable = [
-      "traefik"
-      "servicelb"
+    # Cilium is the Gateway API implementation and the load balancer
+    homelab.cluster.providedComponents = [
+      "ingress"
+      "load-balancer"
     ];
+    environment.systemPackages = [
+      (pkgs.writeShellScriptBin "cilium" ''KUBECONFIG=${ccfg.kubeconfig} exec ${lib.getExe pkgs.cilium-cli} "$@"'')
+    ];
+    # https://github.com/cilium/cilium/issues/31565#issuecomment-3419710315
+    networking.firewall.checkReversePath = false;
     homelab.kubernetes = {
       submodules.defaults = [
         {
@@ -183,8 +189,8 @@ in
         };
       };
     };
-    services.k3s.images = cilium.images;
-    services.k3s.manifests = {
+    homelab.cluster.images = cilium.images;
+    homelab.cluster.manifests = {
       gatewayapi.source = gatewayAPI.src;
       cilium-helm.source = cilium.manifest;
     };

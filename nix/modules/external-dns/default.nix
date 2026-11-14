@@ -78,11 +78,11 @@ in
     debug = lib.mkEnableOption "debug mode";
   };
   config = {
-    services.k3s.images = [
+    homelab.cluster.images = [
       externalDNSImage
       webhookImage
     ];
-    services.k3s.manifests = {
+    homelab.cluster.manifests = {
       dnsendpoint.source = dnsendpointCrd;
       external-dns-static.source = ./external-dns.yaml;
     };

@@ -233,7 +233,7 @@ in
         '';
       }
     ) enabledGroupConfigs);
-    services.k3s.images = lib.optional cfg.enable image;
+    homelab.cluster.images = lib.optional cfg.enable image;
     homelab.kubernetes.submodules.instances.client-vpn = lib.mkIf cfg.enable {
       submodule = "manifest";
       config = {

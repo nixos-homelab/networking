@@ -77,7 +77,7 @@ in
         message = "Unifi depends on the routed loadbalancer IP Pool module. Enable with `homelab.routed-ippool = { enable=true; lbIpBlock4.cidr = ...; }`";
       }
     ];
-    services.k3s.images = [ image ];
+    homelab.cluster.images = [ image ];
     homelab.cluster.backup.volumes.unifi.unifi = [ "/backup" ];
     setup-secrets = {
       sources = {

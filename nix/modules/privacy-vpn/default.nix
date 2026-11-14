@@ -57,7 +57,7 @@ in
     assertions = [
       {
         assertion = config.homelab.cilium.masquerade.enable;
-        message = "In order to use the privacy VPN, masquerading must be enabled (homelab.cluster.masquerade.enable)";
+        message = "In order to use the privacy VPN, masquerading must be enabled (homelab.cilium.masquerade.enable)";
       }
     ];
     homelab.kubernetes.submodules.instances.vpn-egress = {
