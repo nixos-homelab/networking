@@ -210,6 +210,22 @@ in
               { toEntities = [ "kube-apiserver" ]; }
             ];
           };
+          # The metrics-server the runner bundles, unless a module deploys one: to the kubelets for the metrics and to
+          # the API server. Who may reach it comes from the policy intent the runner states for it
+          metrics-server-egress = lib.mkIf (!lib.elem "metrics-server" config.homelab.cluster.providedComponents) {
+            metadata.namespace = "kube-system";
+            spec.endpointSelector.matchLabels.k8s-app = "metrics-server";
+            spec.egress = [
+              {
+                toEntities = [
+                  "host"
+                  "remote-node"
+                ];
+                toPorts = self.lib.toPorts [ 10250 ];
+              }
+              { toEntities = [ "kube-apiserver" ]; }
+            ];
+          };
         };
       };
     };
