@@ -25,9 +25,9 @@ They go in the manifest of the instance; change them through its
 
 `nixosModules.cilium-crds` (which `cilium` imports) adds the kubenix
 types of the Cilium CRDs, of the version of the chart `cilium` installs,
-and of ClusterNetworkPolicy, and hands the CRDs to the manifests check
-through `homelab.cluster.runtimeCRDs`, as Cilium's operator creates them
-at runtime. It deploys nothing: a module that writes Cilium policies by
+and hands the CRDs to the manifests check through
+`homelab.cluster.runtimeCRDs`, as Cilium's operator creates them at
+runtime. It deploys nothing: a module that writes Cilium policies by
 hand imports it, so it evaluates with Cilium off too.
 
 ## `lib.toPorts`
