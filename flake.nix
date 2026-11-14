@@ -58,6 +58,7 @@
           };
           nixosModules = {
             cilium = importApply ./nix/modules/cilium { inherit self inputs; };
+            cilium-crds = importApply ./nix/modules/cilium/crds.nix { inherit self inputs; };
             client-vpn = importApply ./nix/modules/client-vpn { inherit self inputs; };
             external-dns = importApply ./nix/modules/external-dns { inherit self inputs; };
             homepage = importApply ./nix/modules/homepage { inherit self inputs; };

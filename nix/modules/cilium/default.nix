@@ -137,6 +137,7 @@ in
     self.lib.importsApply [
       ./bgp.nix
       ./cidr-groups.nix
+      ./crds.nix
       ./firewall.nix
       ./network-policies.nix
     ]
@@ -158,7 +159,7 @@ in
     homelab.kubernetes = {
       submodules.defaults = [
         {
-          features = [ "pod-spec" ];
+          features = [ "pod-policy" ];
           default = import ./pod-policies.nix self.lib.toPorts;
         }
       ];

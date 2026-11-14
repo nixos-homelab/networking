@@ -1,3 +1,5 @@
 {
+  "cilium-crds@v1.20.4": "sha256-sTfMBPTCs4N1DBFkogJycXZPkJWO1jc+mRTjrDKt4dQ=",
+  "clusternetworkpolicy-crd@v0.2.1": "sha256-RsY1nBGi7NqwWx87BIjlZgkSQ6yHYyIv5VsAxbjuQ5c=",
   "experimental-install@v1.7.0": "sha256-5tLTQHcX9UtXmyKtTRZLaGOJWzUk8hJQsNoMH/mgXVM="
 }
