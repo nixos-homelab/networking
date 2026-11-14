@@ -54,11 +54,6 @@ in
             spec.endpointSelector.matchLabels."cluster.local/apiserver-egress" = "allow";
             spec.egress = [ { toEntities = [ "kube-apiserver" ]; } ];
           };
-          pod-from-apiserver = {
-            metadata.namespace = null;
-            spec.endpointSelector.matchLabels."cluster.local/apiserver-ingress" = "allow";
-            spec.ingress = [ { fromEntities = [ "kube-apiserver" ]; } ];
-          };
           pod-to-internet = {
             metadata.namespace = null;
             spec.endpointSelector.matchLabels."cluster.local/internet-egress" = "allow";
