@@ -66,5 +66,7 @@ in
       gatewayIP6 = "fd00:2::1";
     };
     homepage.enable = true;
+    # Renders the monitors and the exporters that run only while Alloy scrapes them
+    alloy.enable = true;
   };
 }

@@ -23,6 +23,8 @@ pkgs.testers.runNixOSTest {
       homelab.k3s.dataDir = lib.mkForce "/var/lib/k3s";
       systemd.tmpfiles.rules = [ "d /var/lib/k3s 0700 root root -" ];
       homelab.unifi.enable = lib.mkForce false;
+      # The monitoring stack is monitoring's to test
+      homelab.alloy.enable = lib.mkForce false;
       # The test network is the LAN
       homelab.cilium.cidr-groups = {
         localLANCIDR4 = lib.mkForce "192.168.1.0/24";

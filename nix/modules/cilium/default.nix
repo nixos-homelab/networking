@@ -139,6 +139,7 @@ in
       ./cidr-groups.nix
       ./crds.nix
       ./firewall.nix
+      ./metrics.nix
       ./network-policies.nix
     ]
     ++ [ self.nixosModules.privacy-vpn ];
