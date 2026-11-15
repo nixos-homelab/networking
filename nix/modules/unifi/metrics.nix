@@ -34,8 +34,9 @@ let
     ]
     ++ lib.optionals cfg.debug ccfg.debugTools;
     config.User = "65534:65534";
-    # The copy at the image's root: the package's store path isn't in the image unless something references it
-    config.Entrypoint = [ "/bin/unpoller" ];
+    # The image config references the store path, which puts it in the image (a store path named only by the Pod's
+    # command isn't)
+    config.Entrypoint = [ (lib.getExe' pkgs.unpoller "unpoller") ];
   };
 in
 {
