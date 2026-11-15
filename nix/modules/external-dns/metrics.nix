@@ -4,12 +4,17 @@
   imports = [ inputs.homelab-monitoring.nixosModules.alloy ];
   config = {
     homelab.alloy.monitors = {
-      external-dns.podPort = 7979;
+      # external-dns' instance is a deployment, which can't hold the policies: manifests of their own
+      external-dns = {
+        podPort = 7979;
+        manifest = null;
+      };
       external-dns-node-source = {
         namespace = "external-dns";
         selector."app.kubernetes.io/name" = "external-dns";
         port = "metrics-node";
         podPort = 7980;
+        manifest = null;
       };
     };
     # The deployment submodule writes no Service
