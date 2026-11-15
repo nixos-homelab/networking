@@ -1,5 +1,6 @@
-# unpoller next to the controller, scraped by Alloy: it polls the controller with the read-only account that
-# setup-secrets keeps in unifi-credentials and serves the result to Prometheus. It runs only while Alloy is on
+# unpoller as a sidecar of the controller, scraped by Alloy: it polls the controller over localhost with the read-only
+# account that setup-secrets keeps in unifi-credentials and serves the result to Prometheus. It runs only while Alloy
+# is on, and turning Alloy on or off restarts the controller
 { inputs, ... }:
 {
   lib,
@@ -21,7 +22,7 @@ let
       disable = true
     [unifi.defaults]
       # The controller's certificate is for its public name
-      url = "https://unifi.unifi"
+      url = "https://127.0.0.1:8443"
       verify_ssl = false
       sites = ["all"]
   '';
@@ -33,28 +34,29 @@ let
     ]
     ++ lib.optionals cfg.debug ccfg.debugTools;
     config.User = "65534:65534";
-    config.Entrypoint = [ (lib.getExe' pkgs.unpoller "unpoller") ];
+    # The copy at the image's root: the package's store path isn't in the image unless something references it
+    config.Entrypoint = [ "/bin/unpoller" ];
   };
 in
 {
   imports = [ inputs.homelab-monitoring.nixosModules.alloy ];
   config = lib.mkIf cfg.enable (
     lib.mkMerge [
-      # Its only port is the metrics, so the deployment's own policy admits Alloy
-      { homelab.alloy.monitors.unpoller.namespace = "unifi"; }
+      {
+        homelab.alloy.monitors.unifi = {
+          # The controller's other ports are its own
+          podPort = 9130;
+          # Its instance is a workload, which can't hold the policy (kubenix nesting): a manifest of its own
+          manifest = null;
+        };
+      }
       (lib.mkIf config.homelab.alloy.enable {
         homelab.cluster.images = [ image ];
-        homelab.kubernetes.submodules.instances.unpoller = {
-          submodule = "deployment";
-          args = {
-            allowEgress = [ "unifi" ];
-            ports.metrics = 9130;
-            securityContext = {
-              runAsUser = 65534;
-              runAsGroup = 65534;
-              supplementalGroups = [ ];
-            };
-            container = {
+        homelab.kubernetes.submodules.instances.unifi.config.kubernetes.resources = {
+          deployments.unifi.spec.template = {
+            # The sidecar sorts first, where kubectl logs and exec would go without -c
+            metadata.annotations."kubectl.kubernetes.io/default-container" = "unifi";
+            spec.containers.unpoller = {
               image = "${image.buildArgs.name}:${image.imageTag}";
               imagePullPolicy = "Never";
               env = {
@@ -67,21 +69,21 @@ in
                   key = "password";
                 };
               };
+              ports.metrics.containerPort = 9130;
+              securityContext = {
+                runAsUser = 65534;
+                runAsGroup = 65534;
+                runAsNonRoot = true;
+                allowPrivilegeEscalation = false;
+                readOnlyRootFilesystem = true;
+                capabilities.drop = [ "ALL" ];
+              };
               # Each request to /metrics polls the controller
               livenessProbe.tcpSocket.port = "metrics";
               readinessProbe.tcpSocket.port = "metrics";
             };
           };
-          config = {
-            kubernetes.namespace = "unifi";
-            kubernetes.resources.services.unpoller = {
-              metadata.labels."app.kubernetes.io/name" = "unpoller";
-              spec = {
-                selector."app.kubernetes.io/name" = "unpoller";
-                ports.metrics.port = 9130;
-              };
-            };
-          };
+          services.unifi.spec.ports.metrics.port = 9130;
         };
       })
     ]
