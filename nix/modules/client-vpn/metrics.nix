@@ -23,8 +23,9 @@ let
     config.Env = [ "PATH=/bin" ];
     config.Entrypoint = [ (lib.getExe pkgs.prometheus-wireguard-exporter) ];
   };
-  # The exporter takes peer names from friendly_name comments in [Peer] sections of a WireGuard config; these hold
-  # nothing else it needs, and no key
+  # The exporter takes peer names from friendly_name comments in [Peer] sections of a WireGuard config. Its parser
+  # rejects a [Peer] without AllowedIPs (prometheus_wireguard_exporter 3.6.6 src/wireguard_config.rs), and every
+  # /metrics then fails, the readiness probe with it; so each peer has the AllowedIPs of the real config. No keys
   peerNames =
     spec:
     lib.concatStrings (
@@ -32,6 +33,14 @@ let
         [Peer]
         # friendly_name = ${name}
         PublicKey = ${peer.publicKey}
+        AllowedIPs = ${
+          lib.concatStringsSep "," (
+            lib.filter (ip: ip != null) [
+              peer.ipv4
+              peer.ipv6
+            ]
+          )
+        }
 
       '') (lib.filterAttrs (_: peer: peer.enable) spec.peers)
     );
