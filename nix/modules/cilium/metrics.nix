@@ -1,6 +1,7 @@
-# Alloy scrapes the Cilium agent and operator, and reaches the kubelets for theirs. All of them are on the host network:
-# their pods have the host's identity, so no endpoint policy admits Alloy, and these egress policies let it out to
-# `host` and `remote-node` instead. The host firewall already lets the cluster in on every port
+# Alloy scrapes the Cilium agent and operator, the kubelets, and the exporters that run on the hosts themselves
+# (homelab.alloy.nodeTargets). All of them are on the host network: their pods, where there are any, have the host's
+# identity, so no endpoint policy admits Alloy, and these egress policies let it out to `host` and `remote-node`
+# instead. The host firewall already lets the cluster in on every port
 { self, inputs, ... }:
 {
   lib,
@@ -61,7 +62,18 @@ in
             protocol = "TCP";
           }
         ]) { spec.endpointSelector.matchLabels."cluster.local/kubelet-egress" = "allow"; };
-      };
+      }
+      // lib.mapAttrs' (
+        name: t:
+        lib.nameValuePair "pod-to-${name}" (
+          lib.recursiveUpdate (hostEgress [
+            {
+              inherit (t) port;
+              protocol = "TCP";
+            }
+          ]) { spec.endpointSelector.matchLabels."cluster.local/${name}-egress" = "allow"; }
+        )
+      ) config.homelab.alloy.nodeTargets;
     };
   };
 }
