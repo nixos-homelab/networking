@@ -10,7 +10,7 @@ inbound and outbound VPNs, routable IP pools, and DNS management.
 
 See the [Cilium network policies docs](https://nixos-homelab.github.io/networking/cilium/) for the
 policies this repo's `cilium` module gives kubenix pods and `lib.toPorts`, and
-[the options reference](https://nixos-homelab.github.io/networking/options/) for the full list of module options.
+[the documentation](https://nixos-homelab.github.io/networking/), under Options, for the full list of module options.
 
 ## Setup
 
