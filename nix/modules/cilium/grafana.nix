@@ -39,11 +39,17 @@ in
             })
             (g.stat {
               title = "Endpoints not ready";
+              # The endpoints the agent has, less the ready ones. Not cilium_endpoint_state's other states: the agent
+              # counts a restored health or ingress endpoint as restoring, drops it unchanged, and never counts it out
+              description = "Endpoints the agent has that aren't ready";
               decimals = 0;
               queries = [
-                (g.prom ''sum(cilium_endpoint_state{${agent}, endpoint_state!="ready"}) or vector(0)'' {
-                  instant = true;
-                })
+                (g.prom
+                  ''sum(cilium_endpoint{${agent}}) - (sum(cilium_endpoint_state{${agent}, endpoint_state="ready"}) or vector(0))''
+                  {
+                    instant = true;
+                  }
+                )
               ];
               thresholds = [
                 {
