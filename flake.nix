@@ -93,6 +93,8 @@
               modules = lib.attrValues self.nixosModules ++ [
                 ./nix/tests/config.nix
                 {
+                  # Evaluates the metrics parts of the modules, off with Alloy
+                  homelab.alloy.enable = true;
                   nixpkgs.config.allowUnfreePredicate =
                     pkg:
                     builtins.elem (lib.getName pkg) [

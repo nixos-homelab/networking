@@ -53,8 +53,6 @@ in
         homelab.alloy.monitors.unifi = {
           # The controller's other ports are its own
           podPort = 9130;
-          # Its instance is a workload, which can't hold the policy (kubenix nesting): a manifest of its own
-          manifest = null;
         };
       }
       (lib.mkIf config.homelab.alloy.enable {
