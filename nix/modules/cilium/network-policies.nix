@@ -130,6 +130,24 @@ in
             spec.endpointSelector.matchLabels."cluster.local/gateway-ingress" = "allow";
             spec.ingress = [ { fromEntities = [ "ingress" ]; } ];
           };
+          # The metrics of the Cilium agent and operator, both on the host network: their pods are the host's identity,
+          # so no endpoint policy selects them. The host firewall lets the cluster in on every port
+          pod-to-cilium = {
+            metadata.namespace = null;
+            spec.endpointSelector.matchLabels."cluster.local/cilium-egress" = "allow";
+            spec.egress = [
+              {
+                toEntities = [
+                  "host"
+                  "remote-node"
+                ];
+                toPorts = self.lib.toPorts [
+                  9962
+                  9963
+                ];
+              }
+            ];
+          };
           pod-to-cluster = {
             metadata.namespace = null;
             spec.endpointSelector.matchLabels."cluster.local/cluster-egress" = "allow";

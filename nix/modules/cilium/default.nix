@@ -47,6 +47,10 @@ let
 
           tls.secretsNamespace.name = "cilium";
           operator.replicas = 1;
+          # Metrics: the agent's off by default; a headless Service each for the ServiceMonitors
+          prometheus.enabled = true;
+          prometheus.metricsService = true;
+          operator.prometheus.metricsService = true;
           kubeConfigPath = ccfg.kubeconfig;
           k8sServiceHost = "127.0.0.1";
           k8sServicePort = "6443";
@@ -141,7 +145,10 @@ in
       ./firewall.nix
       ./network-policies.nix
     ]
-    ++ [ self.nixosModules.privacy-vpn ];
+    ++ [
+      self.nixosModules.privacy-vpn
+      inputs.homelab-monitoring.nixosModules.alloy
+    ];
   config = lib.mkIf cfg.enable {
     homelab.cluster.imageLocks.${toString ./images.lock} = cilium.refs;
     homelab.cluster.sourceLocks.${toString ../../../.github/pins.lock}.${gatewayAPI.key} =
@@ -187,6 +194,19 @@ in
                 { inherit (cfg.lbIpBlock6) cidr; }
             );
         };
+      };
+    };
+    # Both run on the host network, so Alloy reaches them through pod-to-cilium (network-policies.nix), not through
+    # policies on their pods
+    homelab.alloy.monitors = {
+      cilium-agent = {
+        namespace = "cilium";
+        perNode = true;
+        egress = "cilium";
+      };
+      cilium-operator = {
+        namespace = "cilium";
+        egress = "cilium";
       };
     };
     homelab.cluster.images = cilium.images;
