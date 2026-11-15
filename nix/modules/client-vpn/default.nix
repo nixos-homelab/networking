@@ -37,35 +37,6 @@ let
       (pkgs.lib.getExe upScript)
     ];
   };
-  metricsPort = 9586;
-  # Runs `wg show all dump`, which needs wg in PATH
-  exporterImage = pkgs.dockerTools.buildImage {
-    name = "cluster.local/wireguard-exporter";
-    copyToRoot = [
-      pkgs.prometheus-wireguard-exporter
-      pkgs.wireguard-tools
-    ]
-    ++ lib.optionals cfg.debug ccfg.debugTools;
-    config.User = "0:0";
-    config.Env = [ "PATH=/bin" ];
-    config.Entrypoint = [ (lib.getExe pkgs.prometheus-wireguard-exporter) ];
-  };
-  # The exporter runs only while something scrapes it
-  metrics = config.homelab.alloy.enable;
-  metricsInstances = lib.optionalAttrs metrics {
-    # The exporter sidecars of every group: the policies of the deployments' `ports` would select their pods by the
-    # instance name, which forcedLabels replaces
-    client-vpn = {
-      submodule = "pods";
-      args.ports.metrics = metricsPort;
-    };
-    # A key apart from the pods instance, the same object name
-    client-vpn-service = {
-      name = "client-vpn";
-      submodule = "service";
-      args.ports.metrics = metricsPort;
-    };
-  };
   labels = group: {
     "app.kubernetes.io/name" = "client-vpn";
     "app.kubernetes.io/component" = group;
@@ -163,7 +134,6 @@ in
   };
   imports = [
     inputs.setup-secrets.nixosModules.default
-    inputs.homelab-monitoring.nixosModules.alloy
     self.nixosModules.routed-ippool
   ];
   config = {
@@ -263,8 +233,7 @@ in
         '';
       }
     ) enabledGroupConfigs);
-    homelab.cluster.images = lib.optional cfg.enable image ++ lib.optional (cfg.enable && metrics) exporterImage;
-    homelab.alloy.monitors.client-vpn = lib.mkIf cfg.enable { };
+    homelab.cluster.images = lib.optional cfg.enable image;
     homelab.kubernetes.submodules.instances.client-vpn = lib.mkIf cfg.enable {
       submodule = "manifest";
       config = {
@@ -293,7 +262,7 @@ in
 
                 ${lib.join "\n" (
                   lib.mapAttrsToList (
-                    name:
+                    _name:
                     {
                       publicKey,
                       ipv4,
@@ -302,7 +271,6 @@ in
                     }:
                     ''
                       [Peer]
-                      # friendly_name = ${name}
                       PublicKey = ${publicKey}
                       AllowedIPs = ${
                         lib.join "," (
@@ -361,7 +329,7 @@ in
             }
           ) cfg.groups;
         };
-        submodules.instances = metricsInstances // lib.mapAttrs' (
+        submodules.instances = lib.mapAttrs' (
           group: spec:
           lib.nameValuePair "${group}-vpn" {
             submodule = "deployment";
@@ -418,31 +386,6 @@ in
                     "/config".name = "config";
                     "/config-tmp".name = "config-tmp";
                   };
-                };
-                # Peers' handshakes and traffic, named after the peers through the comments of the ConfigMap
-                containers.wireguard-exporter = lib.mkIf metrics {
-                  image = "${exporterImage.buildArgs.name}:${exporterImage.imageTag}";
-                  imagePullPolicy = "Never";
-                  args = [
-                    "--extract_names_config_files"
-                    "/config/${group}.conf"
-                  ];
-                  ports.metrics.containerPort = metricsPort;
-                  securityContext = {
-                    # wg reads the device over netlink
-                    runAsUser = 0;
-                    runAsGroup = 0;
-                    allowPrivilegeEscalation = false;
-                    readOnlyRootFilesystem = true;
-                    capabilities.add = [ "NET_ADMIN" ];
-                    capabilities.drop = [ "ALL" ];
-                  };
-                  livenessProbe.tcpSocket.port = "metrics";
-                  readinessProbe.httpGet = {
-                    path = "/metrics";
-                    port = "metrics";
-                  };
-                  volumeMounts."/config".name = "config";
                 };
                 volumes = {
                   config-tmp.emptyDir.medium = "Memory";

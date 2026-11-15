@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, self, ... }:
 {
   lib,
   pkgs,
@@ -74,7 +74,7 @@ let
 in
 {
   key = "${toString __curPos.file}#modules.nixos.external-dns";
-  imports = [ inputs.homelab-monitoring.nixosModules.alloy ];
+  imports = self.lib.importsApply [ ./metrics.nix ];
   options.homelab.external-dns = {
     debug = lib.mkEnableOption "debug mode";
   };
@@ -91,24 +91,6 @@ in
     homelab.kubernetes.kubernetes.customTypes = lib.concatMap inputs.homelab-shared.lib.crd2types.customTypes (
       kubelib.fromYAML (builtins.readFile dnsendpointCrd)
     );
-    homelab.alloy.monitors = {
-      external-dns = { };
-      # The node source's sidecar, on the same Service
-      external-dns-node-source = {
-        namespace = "external-dns";
-        selector."app.kubernetes.io/name" = "external-dns";
-        port = "metrics-node";
-      };
-    };
-    # The sidecar's metrics port: `ports` of the deployment would put it on the main container
-    homelab.kubernetes.submodules.instances.external-dns-node-source = {
-      submodule = "pods";
-      args = {
-        selector."app.kubernetes.io/name" = "external-dns";
-        ports.metrics-node = 7980;
-      };
-      config.kubernetes.namespace = "external-dns";
-    };
     homelab.kubernetes.submodules.instances.external-dns = {
       submodule = "deployment";
       args = {
@@ -157,18 +139,6 @@ in
           readinessProbe.httpGet = {
             path = "/healthz";
             port = "metrics";
-          };
-        };
-      };
-      # The deployment submodule writes no Service; this one carries both metrics ports for the ServiceMonitors
-      config.kubernetes.resources.services.external-dns = {
-        metadata.labels."app.kubernetes.io/name" = "external-dns";
-        spec = {
-          clusterIP = "None";
-          selector."app.kubernetes.io/name" = "external-dns";
-          ports = {
-            metrics.port = 7979;
-            metrics-node.port = 7980;
           };
         };
       };
