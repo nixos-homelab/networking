@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, self, ... }:
 {
   lib,
   pkgs,
@@ -74,6 +74,7 @@ let
 in
 {
   key = "${toString __curPos.file}#modules.nixos.external-dns";
+  imports = self.lib.importsApply [ ./metrics.nix ];
   options.homelab.external-dns = {
     debug = lib.mkEnableOption "debug mode";
   };

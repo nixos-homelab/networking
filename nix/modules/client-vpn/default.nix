@@ -135,7 +135,8 @@ in
   imports = [
     inputs.setup-secrets.nixosModules.default
     self.nixosModules.routed-ippool
-  ];
+  ]
+  ++ self.lib.importsApply [ ./metrics.nix ];
   config = {
     assertions =
       (lib.optional cfg.enable {
