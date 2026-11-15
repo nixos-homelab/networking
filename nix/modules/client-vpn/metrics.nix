@@ -47,7 +47,13 @@ let
 in
 {
   imports = [ inputs.homelab-monitoring.nixosModules.alloy ];
-  config = lib.mkIf cfg.enable (
+  options.homelab.client-vpn.metrics.enable = lib.mkOption {
+    description = "Whether Alloy scrapes the client VPN's peers, and runs a WireGuard exporter as a sidecar of each group.";
+    type = lib.types.bool;
+    default = config.homelab.alloy.enable;
+    defaultText = lib.literalExpression "config.homelab.alloy.enable";
+  };
+  config = lib.mkIf (cfg.enable && cfg.metrics.enable) (
     lib.mkMerge [
       {
         # The pods' own port is WireGuard's

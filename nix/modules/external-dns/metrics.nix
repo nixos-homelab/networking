@@ -1,8 +1,15 @@
 # Alloy scrapes external-dns and its node source sidecar, through a headless Service with both metrics ports
 { inputs, ... }:
+{ lib, config, ... }:
 {
   imports = [ inputs.homelab-monitoring.nixosModules.alloy ];
-  config = {
+  options.homelab.external-dns.metrics.enable = lib.mkOption {
+    description = "Whether Alloy scrapes external-dns' metrics.";
+    type = lib.types.bool;
+    default = config.homelab.alloy.enable;
+    defaultText = lib.literalExpression "config.homelab.alloy.enable";
+  };
+  config = lib.mkIf config.homelab.external-dns.metrics.enable {
     homelab.alloy.monitors = {
       # external-dns' instance is a deployment, which can't hold the policies: manifests of their own
       external-dns = {
