@@ -66,7 +66,11 @@ in
       default = [ ];
     };
   };
-  imports = [ self.nixosModules.routed-ippool ] ++ self.lib.importsApply [
+  imports = [
+    self.nixosModules.routed-ippool
+  ]
+  ++ self.lib.importsApply [
+    ./grafana.nix
     ./homepage.nix
     ./metrics.nix
   ];
@@ -210,7 +214,9 @@ in
             annotations = {
               "external-dns.alpha.kubernetes.io/hostname" = "unifi.${config.homelab.workloads.domain}";
             }
-            // lib.optionalAttrs (cfg.reservedIPs != [ ]) { "lbipam.cilium.io/ips" = lib.join "," cfg.reservedIPs; };
+            // lib.optionalAttrs (cfg.reservedIPs != [ ]) {
+              "lbipam.cilium.io/ips" = lib.join "," cfg.reservedIPs;
+            };
           };
           spec = {
             type = "LoadBalancer";
