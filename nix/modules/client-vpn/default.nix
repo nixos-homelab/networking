@@ -136,7 +136,10 @@ in
     inputs.setup-secrets.nixosModules.default
     self.nixosModules.routed-ippool
   ]
-  ++ self.lib.importsApply [ ./metrics.nix ];
+  ++ self.lib.importsApply [
+    ./grafana.nix
+    ./metrics.nix
+  ];
   config = {
     assertions =
       (lib.optional cfg.enable {
@@ -315,7 +318,9 @@ in
                 annotations = {
                   "external-dns.alpha.kubernetes.io/hostname" = "${group}-vpn.${config.homelab.workloads.domain}";
                 }
-                // lib.optionalAttrs (spec.reservedIPs != [ ]) { "lbipam.cilium.io/ips" = lib.join "," spec.reservedIPs; };
+                // lib.optionalAttrs (spec.reservedIPs != [ ]) {
+                  "lbipam.cilium.io/ips" = lib.join "," spec.reservedIPs;
+                };
               };
               spec = {
                 type = "LoadBalancer";
