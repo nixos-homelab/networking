@@ -41,7 +41,13 @@ let
 in
 {
   imports = [ inputs.homelab-monitoring.nixosModules.alloy ];
-  config = lib.mkIf cfg.enable (
+  options.homelab.unifi.metrics.enable = lib.mkOption {
+    description = "Whether Alloy scrapes the UniFi controller's metrics, and runs unpoller as its sidecar.";
+    type = lib.types.bool;
+    default = config.homelab.alloy.enable;
+    defaultText = lib.literalExpression "config.homelab.alloy.enable";
+  };
+  config = lib.mkIf (cfg.enable && cfg.metrics.enable) (
     lib.mkMerge [
       {
         homelab.alloy.monitors.unifi = {

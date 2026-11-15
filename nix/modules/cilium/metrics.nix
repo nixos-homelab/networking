@@ -25,55 +25,70 @@ let
 in
 {
   imports = [ inputs.homelab-monitoring.nixosModules.alloy ];
-  config = lib.mkIf cfg.enable {
-    # The agent serves none by default; a headless Service each for the ServiceMonitors
-    homelab.cilium.extraConfig = {
-      prometheus.enabled = true;
-      prometheus.metricsService = true;
-      operator.prometheus.metricsService = true;
-    };
-    homelab.alloy.monitors = {
-      cilium-agent = {
-        namespace = "cilium";
-        perNode = true;
-        egress = "cilium";
-      };
-      cilium-operator = {
-        namespace = "cilium";
-        egress = "cilium";
-      };
-    };
-    homelab.kubernetes.submodules.instances.cilium-metrics = {
-      submodule = "manifest";
-      config.kubernetes.resources.ciliumClusterwideNetworkPolicies = {
-        pod-to-cilium = lib.recursiveUpdate (hostEgress [
-          {
-            port = 9962;
-            protocol = "TCP";
-          }
-          {
-            port = 9963;
-            protocol = "TCP";
-          }
-        ]) { spec.endpointSelector.matchLabels."cluster.local/cilium-egress" = "allow"; };
-        pod-to-kubelet = lib.recursiveUpdate (hostEgress [
-          {
-            port = 10250;
-            protocol = "TCP";
-          }
-        ]) { spec.endpointSelector.matchLabels."cluster.local/kubelet-egress" = "allow"; };
-      }
-      // lib.mapAttrs' (
-        name: t:
-        lib.nameValuePair "pod-to-${name}" (
+  options.homelab.cilium.metrics.enable = lib.mkOption {
+    description = "Whether Alloy scrapes the Cilium agent's and operator's metrics, and the agent serves them.";
+    type = lib.types.bool;
+    default = config.homelab.alloy.enable;
+    defaultText = lib.literalExpression "config.homelab.alloy.enable";
+  };
+  config = lib.mkIf cfg.enable (
+    lib.mkMerge [
+      (lib.mkIf cfg.metrics.enable {
+        # The agent serves none by default; a headless Service each for the ServiceMonitors. It changes the agent's
+        # pods, so only while Alloy is on
+        homelab.cilium.extraConfig = lib.mkIf config.homelab.alloy.enable {
+          prometheus.enabled = true;
+          prometheus.metricsService = true;
+          operator.prometheus.metricsService = true;
+        };
+        homelab.alloy.monitors = {
+          cilium-agent = {
+            namespace = "cilium";
+            perNode = true;
+            egress = "cilium";
+          };
+          cilium-operator = {
+            namespace = "cilium";
+            egress = "cilium";
+          };
+        };
+        homelab.kubernetes.submodules.instances.cilium-metrics.config.kubernetes.resources.ciliumClusterwideNetworkPolicies.pod-to-cilium =
           lib.recursiveUpdate (hostEgress [
             {
-              inherit (t) port;
+              port = 9962;
               protocol = "TCP";
             }
-          ]) { spec.endpointSelector.matchLabels."cluster.local/${name}-egress" = "allow"; }
-        )
-      ) config.homelab.alloy.nodeTargets;
-    };
-  };
+            {
+              port = 9963;
+              protocol = "TCP";
+            }
+          ]) { spec.endpointSelector.matchLabels."cluster.local/cilium-egress" = "allow"; };
+      })
+      # Alloy's own: the kubelets and its node targets
+      {
+        homelab.kubernetes.submodules.instances.cilium-metrics = {
+          submodule = "manifest";
+          config.kubernetes.resources.ciliumClusterwideNetworkPolicies = {
+            pod-to-kubelet = lib.recursiveUpdate (hostEgress [
+              {
+                port = 10250;
+                protocol = "TCP";
+              }
+            ]) { spec.endpointSelector.matchLabels."cluster.local/kubelet-egress" = "allow"; };
+          }
+          // lib.mapAttrs' (
+            name: t:
+            lib.nameValuePair "pod-to-${name}" (
+              lib.recursiveUpdate (hostEgress [
+                {
+                  inherit (t) port;
+                  protocol = "TCP";
+                }
+              ]) { spec.endpointSelector.matchLabels."cluster.local/${name}-egress" = "allow"; }
+            )
+          ) config.homelab.alloy.nodeTargets;
+        };
+      }
+    ]
+  );
 }
