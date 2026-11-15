@@ -191,7 +191,10 @@ in
     };
     homelab.cluster.images = cilium.images;
     homelab.cluster.manifests = {
-      gatewayapi.source = gatewayAPI.src;
+      # The operator looks for the Gateway API CRDs only when it starts, and without them it serves no Gateway API
+      # until it restarts. k3s applies its manifests one after the other in the byte order of their paths, so this
+      # name sorts before cilium-helm's, and the CRDs exist before the operator's Deployment does
+      cilium-gatewayapi.source = gatewayAPI.src;
       cilium-helm.source = cilium.manifest;
     };
   };
