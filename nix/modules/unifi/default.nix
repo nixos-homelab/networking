@@ -54,32 +54,6 @@ let
     ];
     config.Cmd = [ "start" ];
   };
-  # Polls the controller with the read-only account of unifi-credentials, for Prometheus only
-  unpollerConfig = pkgs.writeTextDir "etc/unpoller/up.conf" ''
-    [poller]
-      quiet = true
-    [prometheus]
-      http_listen = "0.0.0.0:9130"
-    [influxdb]
-      disable = true
-    [loki]
-      disable = true
-    [unifi.defaults]
-      # The controller's certificate is for its public name
-      url = "https://unifi.unifi"
-      verify_ssl = false
-      sites = ["all"]
-  '';
-  unpollerImage = pkgs.dockerTools.buildImage {
-    name = "cluster.local/unpoller";
-    copyToRoot = [
-      pkgs.unpoller
-      unpollerConfig
-    ]
-    ++ lib.optionals cfg.debug ccfg.debugTools;
-    config.User = "65534:65534";
-    config.Entrypoint = [ (lib.getExe' pkgs.unpoller "unpoller") ];
-  };
 in
 {
   key = "${toString __curPos.file}#modules.nixos.unifi";
@@ -92,11 +66,10 @@ in
       default = [ ];
     };
   };
-  imports = [
-    self.nixosModules.routed-ippool
-    inputs.homelab-monitoring.nixosModules.alloy
-  ]
-  ++ self.lib.importsApply [ ./homepage.nix ];
+  imports = [ self.nixosModules.routed-ippool ] ++ self.lib.importsApply [
+    ./homepage.nix
+    ./metrics.nix
+  ];
   config = lib.mkIf cfg.enable {
     # The image is a gzipped tarball, so its contents aren't references of the system. Without this, a GC removes
     # mongodb (unfree, so never substituted) and the next image change rebuilds it from source
@@ -107,48 +80,7 @@ in
         message = "Unifi depends on the routed loadbalancer IP Pool module. Enable with `homelab.routed-ippool = { enable=true; lbIpBlock4.cidr = ...; }`";
       }
     ];
-    homelab.cluster.images = [ image ] ++ lib.optional config.homelab.alloy.enable unpollerImage;
-    homelab.alloy.monitors.unpoller.namespace = "unifi";
-    # The exporter runs only while something scrapes it
-    homelab.kubernetes.submodules.instances.unpoller = lib.mkIf config.homelab.alloy.enable {
-      submodule = "deployment";
-      args = {
-        allowEgress = [ "unifi" ];
-        ports.metrics = 9130;
-        securityContext = {
-          runAsUser = 65534;
-          runAsGroup = 65534;
-          supplementalGroups = [ ];
-        };
-        container = {
-          image = "${unpollerImage.buildArgs.name}:${unpollerImage.imageTag}";
-          imagePullPolicy = "Never";
-          env = {
-            UP_UNIFI_DEFAULT_USER.valueFrom.secretKeyRef = {
-              name = "unifi-credentials";
-              key = "username";
-            };
-            UP_UNIFI_DEFAULT_PASS.valueFrom.secretKeyRef = {
-              name = "unifi-credentials";
-              key = "password";
-            };
-          };
-          # Each request to /metrics polls the controller
-          livenessProbe.tcpSocket.port = "metrics";
-          readinessProbe.tcpSocket.port = "metrics";
-        };
-      };
-      config = {
-        kubernetes.namespace = "unifi";
-        kubernetes.resources.services.unpoller = {
-          metadata.labels."app.kubernetes.io/name" = "unpoller";
-          spec = {
-            selector."app.kubernetes.io/name" = "unpoller";
-            ports.metrics.port = 9130;
-          };
-        };
-      };
-    };
+    homelab.cluster.images = [ image ];
     homelab.cluster.backup.volumes.unifi.unifi = [ "/backup" ];
     setup-secrets = {
       sources = {
