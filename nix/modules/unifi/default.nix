@@ -78,7 +78,7 @@ let
     ]
     ++ lib.optionals cfg.debug ccfg.debugTools;
     config.User = "65534:65534";
-    config.Entrypoint = [ (lib.getExe pkgs.unpoller) ];
+    config.Entrypoint = [ (lib.getExe' pkgs.unpoller "unpoller") ];
   };
 in
 {
