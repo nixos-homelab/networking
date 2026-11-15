@@ -49,24 +49,6 @@ in
               }
             ];
           };
-          # CoreDNS's metrics, for pods labeled as Alloy's `homelab.alloy.monitors.<name>.egress = "coredns"` labels them
-          pod-to-coredns-metrics = {
-            metadata.namespace = null;
-            spec.endpointSelector.matchLabels."cluster.local/coredns-egress" = "allow";
-            spec.egress = [
-              {
-                toEndpoints = [
-                  {
-                    matchLabels = {
-                      "k8s:io.kubernetes.pod.namespace" = "kube-system";
-                      k8s-app = "kube-dns";
-                    };
-                  }
-                ];
-                toPorts = self.lib.toPorts [ 9153 ];
-              }
-            ];
-          };
           pod-to-apiserver = {
             metadata.namespace = null;
             spec.endpointSelector.matchLabels."cluster.local/apiserver-egress" = "allow";
@@ -227,24 +209,6 @@ in
                     protocol = "UDP";
                   }
                 ];
-              }
-              {
-                fromEndpoints = [
-                  {
-                    matchExpressions = [
-                      {
-                        key = "k8s:io.kubernetes.pod.namespace";
-                        operator = "Exists";
-                      }
-                      {
-                        key = "cluster.local/coredns-egress";
-                        operator = "In";
-                        values = [ "allow" ];
-                      }
-                    ];
-                  }
-                ];
-                toPorts = self.lib.toPorts [ 9153 ];
               }
             ];
             spec.egress = [
