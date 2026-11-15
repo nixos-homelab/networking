@@ -139,6 +139,7 @@ in
       ./cidr-groups.nix
       ./crds.nix
       ./firewall.nix
+      ./grafana.nix
       ./metrics.nix
       ./network-policies.nix
     ]
