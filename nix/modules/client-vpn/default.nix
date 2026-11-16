@@ -235,9 +235,9 @@ in
         requires = [ envvar ];
         cmd = hllib.setup-secrets.mkScript pkgs ''
           if [[ ! -e ${credstoreKey name} ]] ||
-            [[ $(${systemd-creds} decrypt ${credstoreKey name} -) != "$${envvar}" ]]; then
+            [[ $(${systemd-creds} decrypt ${credstoreKey name} -) != "''$${envvar}" ]]; then
             mkdir -p -m 700 /etc/credstore.encrypted
-            printf "%s" "$${envvar}" |
+            printf "%s" "''$${envvar}" |
               ${systemd-creds} encrypt --with-key=tpm2 --name=${credential name} - ${credstoreKey name}
             # networkd only imports credentials when it starts
             ${lib.getExe' pkgs.systemd "systemctl"} try-restart systemd-networkd.service
