@@ -211,7 +211,7 @@ in
         requires = map (group: "CLIENT_VPN_${lib.toUpper group}") (builtins.attrNames cfg.groups);
         cmd = hllib.setup-secrets.mkScript pkgs ''
           setKubeSecret client-vpn client-vpn-private-keys \
-            ${lib.join "\\ \n" (
+            ${lib.join " \\\n" (
               map (group: ''${group} "$CLIENT_VPN_${lib.toUpper group}"'') (builtins.attrNames cfg.groups)
             )}
         '';
