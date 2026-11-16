@@ -201,7 +201,15 @@ in
         name = "HOMELAB_${lib.toUpper name}_VPN_PRIVATE_KEY";
         value = {
           description = "Private Key for homelab ${name} VPN connection";
-          cmd = hllib.setup-secrets.mkScript pkgs "${systemd-creds} decrypt ${credstoreKey name} -";
+          # A new key for a peer this machine pairs with for the first time, as the gateway's above. Not after a
+          # failed decrypt, which would replace the key the gateway knows
+          cmd = hllib.setup-secrets.mkScript pkgs ''
+            if [[ -e ${credstoreKey name} ]]; then
+              ${systemd-creds} decrypt ${credstoreKey name} -
+            else
+              ${lib.getExe' pkgs.wireguard-tools "wg"} genkey
+            fi
+          '';
         };
       }) enabledGroupConfigs);
     setup-secrets.destinations = [
