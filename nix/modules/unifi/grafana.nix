@@ -37,9 +37,9 @@ in
             title = "Devices";
             description = "Uptime, CPU and memory of each UniFi device";
             queries = [
-              (g.prom "unpoller_device_uptime_seconds{${j}}" { instant = true; })
-              (g.prom "unpoller_device_cpu_utilization_ratio{${j}}" { instant = true; })
-              (g.prom "unpoller_device_memory_utilization_ratio{${j}}" { instant = true; })
+              (g.prom "max by (name, type) (unpoller_device_uptime_seconds{${j}})" { instant = true; })
+              (g.prom "max by (name, type) (unpoller_device_cpu_utilization_ratio{${j}})" { instant = true; })
+              (g.prom "max by (name, type) (unpoller_device_memory_utilization_ratio{${j}})" { instant = true; })
             ];
             transformations = [
               { id = "merge"; }
@@ -75,7 +75,13 @@ in
           })
           (g.bargauge {
             title = "Wi-Fi signal";
+            description = "Each wireless client's signal at its access point: above -67 dBm is good for anything, orange below, red under -75 dBm where calls and streams drop";
             unit = "dBm";
+            levels = g.levels {
+              warn = -67;
+              crit = -75;
+              below = true;
+            };
             queries = [
               (g.prom "unpoller_client_radio_signal_db{${j}}" {
                 instant = true;

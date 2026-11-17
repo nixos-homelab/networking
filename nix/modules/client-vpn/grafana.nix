@@ -27,7 +27,7 @@ in
             title = "Last handshake";
             unit = "dateTimeFromNow";
             queries = [
-              (g.prom "wireguard_latest_handshake_seconds{${j}} * 1000" {
+              (g.prom "max by (friendly_name, allowed_ips) (wireguard_latest_handshake_seconds{${j}}) * 1000" {
                 instant = true;
                 legend = "{{friendly_name}}";
               })
