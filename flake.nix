@@ -104,6 +104,21 @@
                 }
               ];
             };
+            # The parsers of this flake's workloads on their examples, through the pinned Alloy and Loki
+            checks.logs = inputs.homelab-monitoring.lib.logs.check {
+              inherit pkgs;
+              modules = lib.attrValues self.nixosModules ++ [
+                ./nix/tests/config.nix
+                {
+                  nixpkgs.config.allowUnfreePredicate =
+                    pkg:
+                    builtins.elem (lib.getName pkg) [
+                      "unifi-controller"
+                      "mongodb"
+                    ];
+                }
+              ];
+            };
             # The cluster on one node under the NixOS test driver, with a LAN host beside it (needs KVM)
             checks.cluster = import ./nix/tests/cluster.nix { inherit self inputs pkgs; };
             packages = {

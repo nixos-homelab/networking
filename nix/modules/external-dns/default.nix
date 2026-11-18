@@ -74,7 +74,10 @@ let
 in
 {
   key = "${toString __curPos.file}#modules.nixos.external-dns";
-  imports = self.lib.importsApply [ ./metrics.nix ];
+  imports = self.lib.importsApply [
+    ./logs.nix
+    ./metrics.nix
+  ];
   options.homelab.external-dns = {
     debug = lib.mkEnableOption "debug mode";
   };
