@@ -140,6 +140,7 @@ in
       ./crds.nix
       ./firewall.nix
       ./grafana.nix
+      ./logs.nix
       ./metrics.nix
       ./network-policies.nix
     ]
