@@ -190,14 +190,18 @@ in
     setup-secrets.sources =
       (lib.mapAttrs' (group: _spec: {
         name = "CLIENT_VPN_${lib.toUpper group}";
-        value = {
-          enable = cfg.enable;
-          description = "Client VPN ${group} private key";
-          cmd = hllib.setup-secrets.mkScript pkgs ''
-            getKubeSecret client-vpn client-vpn-private-keys ${group} || \
-            ${lib.getExe' pkgs.wireguard-tools "wg"} genkey
-          '';
-        };
+        # A new key only for a group the Secret doesn't have yet, never because the cluster didn't answer
+        value =
+          hllib.setup-secrets.kubeSecretSource pkgs {
+            description = "Client VPN ${group} private key";
+            namespace = "client-vpn";
+            name = "client-vpn-private-keys";
+            field = group;
+            generate = "${lib.getExe' pkgs.wireguard-tools "wg"} genkey";
+          }
+          // {
+            enable = cfg.enable;
+          };
       }) cfg.groups)
       // (lib.mapAttrs' (name: _value: {
         name = "HOMELAB_${lib.toUpper name}_VPN_PRIVATE_KEY";
@@ -215,17 +219,13 @@ in
         };
       }) enabledGroupConfigs);
     setup-secrets.destinations = [
-      {
+      (hllib.setup-secrets.kubeSecretDestination pkgs {
         enable = cfg.enable;
         logPrefix = "Client VPN Private Keys";
-        requires = map (group: "CLIENT_VPN_${lib.toUpper group}") (builtins.attrNames cfg.groups);
-        cmd = hllib.setup-secrets.mkScript pkgs ''
-          setKubeSecret client-vpn client-vpn-private-keys \
-            ${lib.join " \\\n" (
-              map (group: ''${group} "$CLIENT_VPN_${lib.toUpper group}"'') (builtins.attrNames cfg.groups)
-            )}
-        '';
-      }
+        namespace = "client-vpn";
+        name = "client-vpn-private-keys";
+        data = lib.mapAttrs (group: _spec: "CLIENT_VPN_${lib.toUpper group}") cfg.groups;
+      })
     ]
     ++ (lib.mapAttrsToList (
       name: _value:

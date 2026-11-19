@@ -90,27 +90,29 @@ in
     homelab.cluster.backup.volumes.unifi.unifi = [ "/backup" ];
     setup-secrets = {
       sources = {
-        UNIFI_USERNAME = {
+        UNIFI_USERNAME = hllib.setup-secrets.kubeSecretSource pkgs {
           description = "Unifi username (readonly)";
-          cmd = hllib.setup-secrets.mkScript pkgs "getKubeSecret unifi unifi-credentials username";
+          namespace = "unifi";
+          name = "unifi-credentials";
+          field = "username";
         };
-        UNIFI_PASSWORD = {
+        UNIFI_PASSWORD = hllib.setup-secrets.kubeSecretSource pkgs {
           description = "Unifi password (readonly)";
-          cmd = hllib.setup-secrets.mkScript pkgs "getKubeSecret unifi unifi-credentials password";
+          namespace = "unifi";
+          name = "unifi-credentials";
+          field = "password";
         };
       };
       destinations = [
-        {
+        (hllib.setup-secrets.kubeSecretDestination pkgs {
           logPrefix = "Unifi credentials";
-          requires = [
-            "UNIFI_USERNAME"
-            "UNIFI_PASSWORD"
-          ];
-          cmd = hllib.setup-secrets.mkScript pkgs ''
-            setKubeSecret unifi unifi-credentials \
-              username "''${UNIFI_USERNAME:?}" \
-              password "''${UNIFI_PASSWORD:?}"'';
-        }
+          namespace = "unifi";
+          name = "unifi-credentials";
+          data = {
+            username = "UNIFI_USERNAME";
+            password = "UNIFI_PASSWORD";
+          };
+        })
       ];
     };
     homelab.kubernetes.submodules.instances.unifi = {
