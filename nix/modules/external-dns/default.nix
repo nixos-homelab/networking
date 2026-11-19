@@ -75,6 +75,7 @@ in
 {
   key = "${toString __curPos.file}#modules.nixos.external-dns";
   imports = self.lib.importsApply [
+    ./home-area.nix
     ./logs.nix
     ./metrics.nix
   ];
