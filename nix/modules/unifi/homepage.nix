@@ -25,17 +25,15 @@ in
   ];
   config = lib.mkIf cfg.enable {
     setup-secrets.destinations = [
-      {
+      (hllib.setup-secrets.kubeSecretDestination pkgs {
         logPrefix = "Homepage (Unifi credentials)";
-        requires = [
-          "UNIFI_USERNAME"
-          "UNIFI_PASSWORD"
-        ];
-        cmd = hllib.setup-secrets.mkScript pkgs ''
-          setKubeSecret homepage unifi-credentials \
-            HOMEPAGE_VAR_UNIFI_USERNAME "''${UNIFI_USERNAME:?}" \
-            HOMEPAGE_VAR_UNIFI_PASSWORD "''${UNIFI_PASSWORD:?}"'';
-      }
+        namespace = "homepage";
+        name = "unifi-credentials";
+        data = {
+          HOMEPAGE_VAR_UNIFI_USERNAME = "UNIFI_USERNAME";
+          HOMEPAGE_VAR_UNIFI_PASSWORD = "UNIFI_PASSWORD";
+        };
+      })
     ];
     homelab.homepage = {
       widgets.unifi_console = {
