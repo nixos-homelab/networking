@@ -1,4 +1,4 @@
-# UniFi's rows of the Workload dashboard, shown for its namespace
+# UniFi's rows of the Workload dashboard, shown for its namespace, and the WAN throughput on Home
 { inputs, ... }:
 { config, lib, ... }:
 let
@@ -19,6 +19,40 @@ in
     '';
   };
   config = lib.mkIf cfg.grafana.enable {
+    homelab.grafana.home.graphs.wan = {
+      title = "WAN throughput";
+      description = "The gateway's WAN port, from UniFi Poller: received above zero, sent below";
+      unit = "bps";
+      legend = g.legends.bottom // {
+        calcs = [
+          "mean"
+          "max"
+        ];
+      };
+      queryOptions.maxDataPoints = 150;
+      order = 230;
+      w = 6;
+      h = 5;
+      links = [
+        {
+          title = "Workload";
+          url = "/d/workload/workload?var-workload=unifi&\${__url_time_range}";
+        }
+      ];
+      series = {
+        rx = {
+          order = 1;
+          color = "blue";
+          query = g.prom "8 * sum(rate(unpoller_device_wan_receive_bytes_total{${j}}[$__rate_interval]))" { };
+        };
+        tx = {
+          order = 2;
+          color = "green";
+          below = true;
+          query = g.prom "8 * sum(rate(unpoller_device_wan_transmit_bytes_total{${j}}[$__rate_interval]))" { };
+        };
+      };
+    };
     homelab.grafana.drilldown.rows.unifi = {
       workload = "unifi";
       row = g.row { title = "UniFi"; } (
