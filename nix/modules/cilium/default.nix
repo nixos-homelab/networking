@@ -135,7 +135,6 @@ in
   };
   imports =
     self.lib.importsApply [
-    ./home-area.nix
       ./bgp.nix
       ./cidr-groups.nix
       ./crds.nix

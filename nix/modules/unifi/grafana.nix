@@ -1,4 +1,6 @@
 # UniFi's rows of the Workload dashboard, shown for its namespace, and the WAN throughput on Home
+# Its namespace counts toward the `network` area of the Home dashboard, whose CPU, memory and traffic graphs sum the
+# containers by area
 { inputs, ... }:
 { config, lib, ... }:
 let
@@ -18,122 +20,132 @@ in
       && config.homelab.grafana.enable
     '';
   };
-  config = lib.mkIf cfg.grafana.enable {
-    homelab.grafana.home.graphs.wan = {
-      title = "WAN throughput";
-      description = "The gateway's WAN port, from UniFi Poller: received above zero, sent below";
-      unit = "bps";
-      legend = g.legends.bottom // {
-        calcs = [
-          "mean"
-          "max"
+  config = lib.mkMerge [
+    {
+      homelab.grafana.home.areas.network = {
+        color = "#ff9830";
+        namespaces = lib.mkIf config.homelab.unifi.enable [ "unifi" ];
+      };
+    }
+    (lib.mkIf cfg.grafana.enable {
+      homelab.grafana.home.graphs.wan = {
+        title = "WAN throughput";
+        description = "The gateway's WAN port, from UniFi Poller: received above zero, sent below";
+        unit = "bps";
+        legend = g.legends.bottom // {
+          calcs = [
+            "mean"
+            "max"
+          ];
+        };
+        queryOptions.maxDataPoints = 150;
+        order = 230;
+        w = 6;
+        h = 5;
+        links = [
+          {
+            title = "Workload";
+            url = "/d/workload/workload?var-workload=unifi&\${__url_time_range}";
+          }
         ];
-      };
-      queryOptions.maxDataPoints = 150;
-      order = 230;
-      w = 6;
-      h = 5;
-      links = [
-        {
-          title = "Workload";
-          url = "/d/workload/workload?var-workload=unifi&\${__url_time_range}";
-        }
-      ];
-      series = {
-        rx = {
-          order = 1;
-          color = "blue";
-          query = g.prom "8 * sum(rate(unpoller_device_wan_receive_bytes_total{${j}}[$__rate_interval]))" { };
-        };
-        tx = {
-          order = 2;
-          color = "green";
-          below = true;
-          query = g.prom "8 * sum(rate(unpoller_device_wan_transmit_bytes_total{${j}}[$__rate_interval]))" { };
+        series = {
+          rx = {
+            order = 1;
+            color = "blue";
+            query = g.prom "8 * sum(rate(unpoller_device_wan_receive_bytes_total{${j}}[$__rate_interval]))" { };
+          };
+          tx = {
+            order = 2;
+            color = "green";
+            below = true;
+            query =
+              g.prom "8 * sum(rate(unpoller_device_wan_transmit_bytes_total{${j}}[$__rate_interval]))"
+                { };
+          };
         };
       };
-    };
-    homelab.grafana.drilldown.rows.unifi = {
-      workload = "unifi";
-      row = g.row { title = "UniFi"; } (
-        g.autoGrid { columns = 3; } [
-          (g.stat {
-            title = "Clients";
-            decimals = 0;
-            queries = [
-              (g.prom "unpoller_site_users{${j}}" {
-                instant = true;
-                legend = "{{subsystem}}";
-              })
-            ];
-          })
-          (g.table {
-            title = "Devices";
-            description = "Uptime, CPU and memory of each UniFi device";
-            queries = [
-              (g.prom "max by (name, type) (unpoller_device_uptime_seconds{${j}})" { instant = true; })
-              (g.prom "max by (name, type) (unpoller_device_cpu_utilization_ratio{${j}})" { instant = true; })
-              (g.prom "max by (name, type) (unpoller_device_memory_utilization_ratio{${j}})" { instant = true; })
-            ];
-            transformations = [
-              { id = "merge"; }
-              {
-                id = "organize";
-                options = {
-                  excludeByName = {
-                    Time = true;
-                    site_name = true;
-                    source = true;
+      homelab.grafana.drilldown.rows.unifi = {
+        workload = "unifi";
+        row = g.row { title = "UniFi"; } (
+          g.autoGrid { columns = 3; } [
+            (g.stat {
+              title = "Clients";
+              decimals = 0;
+              queries = [
+                (g.prom "unpoller_site_users{${j}}" {
+                  instant = true;
+                  legend = "{{subsystem}}";
+                })
+              ];
+            })
+            (g.table {
+              title = "Devices";
+              description = "Uptime, CPU and memory of each UniFi device";
+              queries = [
+                (g.prom "max by (name, type) (unpoller_device_uptime_seconds{${j}})" { instant = true; })
+                (g.prom "max by (name, type) (unpoller_device_cpu_utilization_ratio{${j}})" { instant = true; })
+                (g.prom "max by (name, type) (unpoller_device_memory_utilization_ratio{${j}})" { instant = true; })
+              ];
+              transformations = [
+                { id = "merge"; }
+                {
+                  id = "organize";
+                  options = {
+                    excludeByName = {
+                      Time = true;
+                      site_name = true;
+                      source = true;
+                    };
+                    renameByName = {
+                      "Value #A" = "uptime (s)";
+                      "Value #B" = "CPU";
+                      "Value #C" = "memory";
+                    };
                   };
-                  renameByName = {
-                    "Value #A" = "uptime (s)";
-                    "Value #B" = "CPU";
-                    "Value #C" = "memory";
-                  };
-                };
-              }
-            ];
-          })
-          (g.timeseries {
-            title = "Client traffic";
-            unit = "bps";
-            description = "Each client; received above the line, sent below";
-            queries = [
-              (g.prom "sum by (name) (rate(unpoller_client_receive_bytes_total{${j}}[$__rate_interval])) * 8" {
-                legend = "{{name}} in";
-              })
-              (g.prom "-sum by (name) (rate(unpoller_client_transmit_bytes_total{${j}}[$__rate_interval])) * 8" {
-                legend = "{{name}} out";
-              })
-            ];
-          })
-          (g.bargauge {
-            title = "Wi-Fi signal";
-            description = "Each wireless client's signal at its access point: above -67 dBm is good for anything, orange below, red under -75 dBm where calls and streams drop";
-            unit = "dBm";
-            levels = g.levels {
-              warn = -67;
-              crit = -75;
-              below = true;
-            };
-            queries = [
-              (g.prom "unpoller_client_radio_signal_db{${j}}" {
-                instant = true;
-                legend = "{{name}} ({{ap_name}})";
-              })
-            ];
-          })
-          (g.timeseries {
-            title = "Device traffic";
-            unit = "bps";
-            queries = [
-              (g.prom "sum by (name) (rate(unpoller_device_bytes_total{${j}}[$__rate_interval])) * 8" {
-                legend = "{{name}}";
-              })
-            ];
-          })
-        ]
-      );
-    };
-  };
+                }
+              ];
+            })
+            (g.timeseries {
+              title = "Client traffic";
+              unit = "bps";
+              description = "Each client; received above the line, sent below";
+              queries = [
+                (g.prom "sum by (name) (rate(unpoller_client_receive_bytes_total{${j}}[$__rate_interval])) * 8" {
+                  legend = "{{name}} in";
+                })
+                (g.prom "-sum by (name) (rate(unpoller_client_transmit_bytes_total{${j}}[$__rate_interval])) * 8" {
+                  legend = "{{name}} out";
+                })
+              ];
+            })
+            (g.bargauge {
+              title = "Wi-Fi signal";
+              description = "Each wireless client's signal at its access point: above -67 dBm is good for anything, orange below, red under -75 dBm where calls and streams drop";
+              unit = "dBm";
+              levels = g.levels {
+                warn = -67;
+                crit = -75;
+                below = true;
+              };
+              queries = [
+                (g.prom "unpoller_client_radio_signal_db{${j}}" {
+                  instant = true;
+                  legend = "{{name}} ({{ap_name}})";
+                })
+              ];
+            })
+            (g.timeseries {
+              title = "Device traffic";
+              unit = "bps";
+              queries = [
+                (g.prom "sum by (name) (rate(unpoller_device_bytes_total{${j}}[$__rate_interval])) * 8" {
+                  legend = "{{name}}";
+                })
+              ];
+            })
+          ]
+        );
+      };
+    })
+  ];
 }

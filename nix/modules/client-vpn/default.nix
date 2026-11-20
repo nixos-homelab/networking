@@ -137,7 +137,6 @@ in
     self.nixosModules.routed-ippool
   ]
   ++ self.lib.importsApply [
-    ./home-area.nix
     ./grafana.nix
     ./logs.nix
     ./metrics.nix
