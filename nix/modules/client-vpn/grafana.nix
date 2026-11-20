@@ -1,4 +1,6 @@
 # Client VPN's rows of the Workload dashboard, shown for its namespace
+# Its namespace counts toward the `network` area of the Home dashboard, whose CPU, memory and traffic graphs sum the
+# containers by area
 { inputs, ... }:
 { config, lib, ... }:
 let
@@ -18,47 +20,55 @@ in
       && config.homelab.grafana.enable
     '';
   };
-  config = lib.mkIf cfg.grafana.enable {
-    homelab.grafana.drilldown.rows.client-vpn = {
-      workload = "client-vpn";
-      row = g.row { title = "Client VPN"; } (
-        g.autoGrid { columns = 2; } [
-          (g.table {
-            title = "Last handshake";
-            unit = "dateTimeFromNow";
-            queries = [
-              (g.prom "max by (friendly_name, allowed_ips) (wireguard_latest_handshake_seconds{${j}}) * 1000" {
-                instant = true;
-                legend = "{{friendly_name}}";
-              })
-            ];
-            transformations = [
-              {
-                id = "organize";
-                options.excludeByName = {
-                  Time = true;
-                  public_key = true;
-                };
-              }
-            ];
-          })
-          (g.timeseries {
-            title = "Traffic per peer";
-            unit = "bps";
-            description = "Received from the peer above the line, sent to it below";
-            queries = [
-              (g.prom "sum by (friendly_name) (rate(wireguard_received_bytes_total{${j}}[$__rate_interval])) * 8"
+  config = lib.mkMerge [
+    {
+      homelab.grafana.home.areas.network = {
+        color = "#ff9830";
+        namespaces = lib.mkIf config.homelab.client-vpn.enable [ "client-vpn" ];
+      };
+    }
+    (lib.mkIf cfg.grafana.enable {
+      homelab.grafana.drilldown.rows.client-vpn = {
+        workload = "client-vpn";
+        row = g.row { title = "Client VPN"; } (
+          g.autoGrid { columns = 2; } [
+            (g.table {
+              title = "Last handshake";
+              unit = "dateTimeFromNow";
+              queries = [
+                (g.prom "max by (friendly_name, allowed_ips) (wireguard_latest_handshake_seconds{${j}}) * 1000" {
+                  instant = true;
+                  legend = "{{friendly_name}}";
+                })
+              ];
+              transformations = [
                 {
-                  legend = "{{friendly_name}} in";
+                  id = "organize";
+                  options.excludeByName = {
+                    Time = true;
+                    public_key = true;
+                  };
                 }
-              )
-              (g.prom "-sum by (friendly_name) (rate(wireguard_sent_bytes_total{${j}}[$__rate_interval])) * 8" {
-                legend = "{{friendly_name}} out";
-              })
-            ];
-          })
-        ]
-      );
-    };
-  };
+              ];
+            })
+            (g.timeseries {
+              title = "Traffic per peer";
+              unit = "bps";
+              description = "Received from the peer above the line, sent to it below";
+              queries = [
+                (g.prom "sum by (friendly_name) (rate(wireguard_received_bytes_total{${j}}[$__rate_interval])) * 8"
+                  {
+                    legend = "{{friendly_name}} in";
+                  }
+                )
+                (g.prom "-sum by (friendly_name) (rate(wireguard_sent_bytes_total{${j}}[$__rate_interval])) * 8" {
+                  legend = "{{friendly_name}} out";
+                })
+              ];
+            })
+          ]
+        );
+      };
+    })
+  ];
 }

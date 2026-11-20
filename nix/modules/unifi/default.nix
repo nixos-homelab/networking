@@ -70,7 +70,6 @@ in
     self.nixosModules.routed-ippool
   ]
   ++ self.lib.importsApply [
-    ./home-area.nix
     ./grafana.nix
     ./homepage.nix
     ./logs.nix
