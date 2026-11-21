@@ -215,6 +215,8 @@ in
               ${lib.getExe' pkgs.wireguard-tools "wg"} genkey
             fi
           '';
+          same = "${lib.getExe' pkgs.coreutils "stat"} -c %Y ${credstoreKey name} 2>/dev/null || true";
+          storedIn = credstoreKey name;
         };
       }) enabledGroupConfigs);
     setup-secrets.destinations = [
@@ -234,6 +236,7 @@ in
       {
         logPrefix = "Homelab ${name} VPN Private Key";
         requires = [ envvar ];
+        outputs = [ "file:${credstoreKey name}" ];
         cmd = hllib.setup-secrets.mkScript pkgs ''
           if [[ ! -e ${credstoreKey name} ]] ||
             [[ $(${systemd-creds} decrypt ${credstoreKey name} -) != "''$${envvar}" ]]; then

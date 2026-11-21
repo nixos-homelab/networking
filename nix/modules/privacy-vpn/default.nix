@@ -102,11 +102,14 @@ in
       sources.PRIVACY_VPN_PRIVATE_KEY = {
         description = "Private Key for privacy VPN connection";
         cmd = hllib.setup-secrets.mkScript pkgs "${systemd-creds} decrypt ${credstoreKey} -";
+        same = "${lib.getExe' pkgs.coreutils "stat"} -c %Y ${credstoreKey} 2>/dev/null || true";
+        storedIn = credstoreKey;
       };
       destinations = [
         {
           logPrefix = "Privacy VPN Private Key";
           requires = [ "PRIVACY_VPN_PRIVATE_KEY" ];
+          outputs = [ "file:${credstoreKey}" ];
           cmd = hllib.setup-secrets.mkScript pkgs ''
             if [[ ! -e ${credstoreKey} ]] ||
               [[ $(${systemd-creds} decrypt ${credstoreKey} -) != "$PRIVACY_VPN_PRIVATE_KEY" ]]; then
