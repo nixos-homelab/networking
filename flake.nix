@@ -104,6 +104,25 @@
                 }
               ];
             };
+            # The PromQL of this flake's alert rules through promtool, with Grafana on to have them
+            checks.promql = inputs.homelab-monitoring.lib.alerts.check {
+              inherit pkgs;
+              config =
+                (inputs.nixpkgs.lib.nixosSystem {
+                  modules =
+                    lib.attrValues inputs.homelab-shared.nixosModules
+                    ++ lib.attrValues self.nixosModules
+                    ++ [
+                      inputs.homelab-shared.lib.checks.fixture
+                      { nixpkgs.hostPlatform = pkgs.stdenv.hostPlatform.system; }
+                      ./nix/tests/config.nix
+                      {
+                        homelab.alloy.enable = true;
+                        homelab.grafana.enable = true;
+                      }
+                    ];
+                }).config;
+            };
             # The parsers of this flake's workloads on their examples, through the pinned Alloy and Loki
             checks.logs = inputs.homelab-monitoring.lib.logs.check {
               inherit pkgs;
