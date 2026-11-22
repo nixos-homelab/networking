@@ -31,10 +31,6 @@
       inputs.homelab-shared.follows = "homelab-shared";
       inputs.docs.follows = "docs";
     };
-    nixhelm = {
-      url = "github:nix-community/nixhelm";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     docs = {
       url = "github:andsens/nix-docs";
       inputs.systems.follows = "systems";
