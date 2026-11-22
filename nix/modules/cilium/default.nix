@@ -9,9 +9,21 @@ let
   ccfg = config.homelab.cluster;
   cfg = config.homelab.cilium;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
-  charts = inputs.nixhelm.charts { inherit pkgs; };
-  # The chart's images, preloaded from images.lock
   pins = inputs.homelab-shared.lib.pins.refs ../../../.github/workflows/pins.yaml;
+  # The chart's version is the cilium/cilium tag in pins.yaml, its hash in pins.lock, so the chart, its CRDs
+  # (crds.nix) and images.lock move together in one bump and no input a consumer overrides can pick a version these
+  # locks don't have
+  chart =
+    inputs.homelab-shared.lib.pins.locked ../../../.github/pins.lock "cilium-chart" pins."cilium/cilium"
+      (
+        hash:
+        kubelib.downloadHelmChart {
+          repo = "https://helm.cilium.io/";
+          chart = "cilium";
+          version = lib.removePrefix "v" pins."cilium/cilium";
+          chartHash = hash;
+        }
+      );
   gatewayAPI =
     inputs.homelab-shared.lib.pins.locked ../../../.github/pins.lock "experimental-install"
       pins."kubernetes-sigs/gateway-api"
@@ -24,11 +36,12 @@ let
           inherit hash;
         }
       );
+  # The chart's images, preloaded from images.lock
   cilium = inputs.homelab-shared.lib.images.chart pkgs ./images.lock (
     kubelib.buildHelmChart {
       name = "cilium";
       namespace = "cilium";
-      chart = charts.cilium.cilium;
+      chart = chart.src;
       values = lib.recursiveUpdate (
         {
           hostFirewall.enabled = cfg.firewall.enable;
@@ -148,8 +161,10 @@ in
     ++ [ self.nixosModules.privacy-vpn ];
   config = lib.mkIf cfg.enable {
     homelab.cluster.imageLocks.${toString ./images.lock} = cilium.refs;
-    homelab.cluster.sourceLocks.${toString ../../../.github/pins.lock}.${gatewayAPI.key} =
-      gatewayAPI.unlocked;
+    homelab.cluster.sourceLocks.${toString ../../../.github/pins.lock} = {
+      ${gatewayAPI.key} = gatewayAPI.unlocked;
+      ${chart.key} = chart.unlocked;
+    };
     assertions = [
       {
         assertion = !config.homelab.privacy-vpn.enable || cfg.masquerade.enable;

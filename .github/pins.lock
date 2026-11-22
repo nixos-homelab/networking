@@ -1,4 +1,5 @@
 {
+  "cilium-chart@v1.20.5": "sha256-K3fcFNlHi1Jw5nljFv6vvnJ1rgmdLXTV1ubMmPR/Cpw=",
   "cilium-crds@v1.20.5": "sha256-1VFz8ssEXUjqQq9WhkxlIrdLfU491NON3PKh7jwVWQk=",
   "experimental-install@v1.7.0": "sha256-5tLTQHcX9UtXmyKtTRZLaGOJWzUk8hJQsNoMH/mgXVM="
 }

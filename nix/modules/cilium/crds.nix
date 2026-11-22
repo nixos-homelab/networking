@@ -12,8 +12,8 @@ let
   shared = inputs.homelab-shared.lib;
   kubelib = inputs.kube-generators.lib { inherit pkgs; };
   pinned = shared.pins.locked ../../../.github/pins.lock;
-  # The version of the chart the cilium module installs
-  version = "v${inputs.nixhelm.chartsMetadata.cilium.cilium.version}";
+  # The tag of the chart the cilium module installs
+  version = (shared.pins.refs ../../../.github/workflows/pins.yaml)."cilium/cilium";
   ciliumDir = "pkg/k8s/apis/cilium.io/client/crds/v2";
   cilium = pinned "cilium-crds" version (
     hash:

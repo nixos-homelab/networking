@@ -14,3 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: kubernetes-sigs/gateway-api@v1.7.0
+    # The Cilium chart, from helm.cilium.io, whose versions are these tags without the v. The CRDs come from the
+    # same tag
+    - uses: cilium/cilium@v1.20.5
