@@ -76,7 +76,12 @@
           };
         };
         perSystem =
-          { pkgs, lib, ... }:
+          {
+            config,
+            pkgs,
+            lib,
+            ...
+          }:
           {
             # One lock node per homelab repo
             checks.flake-lock = inputs.homelab-shared.lib.checks.flakeLock {
@@ -139,8 +144,16 @@
                 }
               ];
             };
-            # The cluster on one node under the NixOS test driver, with a LAN host beside it (needs KVM)
-            checks.cluster = import ./nix/tests/cluster.nix { inherit self inputs pkgs; };
+            # The VM tests, under the NixOS test driver (needs KVM): `nix build .#nixosTests.<name>`. They stay out of the
+            # checks, so a plain `nix flake check` takes minutes; CI runs both
+            # The cluster on one node, with a LAN host beside it
+            legacyPackages.nixosTests.cluster = import ./nix/tests/cluster.nix { inherit self inputs pkgs; };
+            # That the VM tests evaluate, without building or running them
+            checks.nixos-tests = pkgs.writeText "nixos-tests" (
+              lib.concatMapStringsSep "\n" (test: builtins.unsafeDiscardOutputDependency test.drvPath) (
+                lib.attrValues config.legacyPackages.nixosTests
+              )
+            );
             packages = {
               options-docs = inputs.docs.lib.docs.options {
                 inherit pkgs;
