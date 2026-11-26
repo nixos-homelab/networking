@@ -104,6 +104,8 @@ in
         cmd = hllib.setup-secrets.mkScript pkgs "${systemd-creds} decrypt ${credstoreKey} -";
         same = "${lib.getExe' pkgs.coreutils "stat"} -c %Y ${credstoreKey} 2>/dev/null || true";
         storedIn = credstoreKey;
+        # The VPN provider's key, typed in on a real machine; any key makes the interface
+        test = "${lib.getExe' pkgs.wireguard-tools "wg"} genkey";
       };
       destinations = [
         {
